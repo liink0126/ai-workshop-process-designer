@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  word-break: keep-all;
+  background-color: #f7f8fa;
+}
+
+.bg-grid-pattern {
+  background-image: linear-gradient(rgba(100, 116, 139, 0.03) 1px, transparent 1px), 
+                    linear-gradient(to right, rgba(100, 116, 139, 0.03) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+  background-position: top center;
+}
+
+.text-gradient {
+  background-image: linear-gradient(90deg, #4f46e5, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.7s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.prose h4, .prose h5 {
+  margin-bottom: 0.5em !important;
+  margin-top: 1em !important;
+}
+
+.prose ul { 
+  list-style-type: disc !important; 
+  padding-left: 1.5rem !important; 
+  margin-top: 0.5em !important; 
+}
+
+.prose li { 
+  margin-bottom: 0.25rem !important; 
+}
+
+.prose p { 
+  margin-bottom: 0.5rem !important; 
+}
+
+.prose strong { 
+  font-weight: 600 !important; 
+}
+
+@media print {
+  body {
+    background-color: #fff;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 1.5rem;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .printable-area h2 {
+    font-size: 24pt !important;
+  }
+  .printable-area .workshop-step-card {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+    page-break-inside: avoid;
+  }
+}
+
