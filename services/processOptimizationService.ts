@@ -130,17 +130,18 @@ export const generateMultipleProcessOptions = async (
 - 옵션 3: 효율적이고 실용적인 접근 (옵션 3개일 때)
 
 각 옵션은 다음을 포함해야 합니다:
-- plan: 워크숍 단계 배열
+- plan: 워크숍 단계 배열 (각 단계의 description은 간결하게 작성)
 - analysis: 난이도 분석
 - preparation: 실행 준비 정보
-- participantManagement: 참여자 관리 가이드
-- execution: 실행 가이드
-- followUp: 후속 조치
 - summary: 이 옵션의 특징 요약 (1-2문장)
 - pros: 이 옵션의 장점 배열 (3-5개)
 - cons: 이 옵션의 단점 배열 (2-3개)
 
-모든 옵션은 동일한 목적과 결과물을 달성하되, 접근 방식이 다르고 각각의 장단점이 명확해야 합니다.
+**중요**: 
+- participantManagement, execution, followUp은 선택사항입니다. 포함하지 않아도 됩니다.
+- description 필드는 간결하게 작성하여 응답 길이를 줄이세요.
+- 모든 옵션은 동일한 목적과 결과물을 달성하되, 접근 방식이 다르고 각각의 장단점이 명확해야 합니다.
+- 반드시 완전한 JSON 배열을 반환하세요. 응답이 중간에 잘리지 않도록 주의하세요.
 `;
 
     try {
@@ -149,6 +150,9 @@ export const generateMultipleProcessOptions = async (
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
+                generationConfig: {
+                    maxOutputTokens: 16384, // 여러 옵션 생성 시 더 긴 응답을 위해 토큰 수 증가
+                },
                 responseSchema: {
                     type: Type.ARRAY,
                     items: {
@@ -214,7 +218,9 @@ export const generateMultipleProcessOptions = async (
                             pros: { type: Type.ARRAY, items: { type: Type.STRING } },
                             cons: { type: Type.ARRAY, items: { type: Type.STRING } }
                         },
-                        required: ["plan", "analysis", "preparation", "summary", "pros", "cons"]
+                        required: ["plan", "analysis", "preparation", "summary", "pros", "cons"],
+                        // participantManagement, execution, followUp은 선택사항
+                        additionalProperties: true
                     }
                 }
             },
@@ -227,11 +233,19 @@ export const generateMultipleProcessOptions = async (
             parsedResponse = extractJson<unknown>(rawText);
         } catch (parseError) {
             // 파싱 실패 시 원본 텍스트 로깅
+            const errorMessage = getErrorMessage(parseError);
             logger.error("JSON 파싱 실패", parseError, { 
-                rawTextPreview: rawText.substring(0, 500),
-                rawTextLength: rawText.length 
+                rawTextPreview: rawText.substring(0, 1000),
+                rawTextLength: rawText.length,
+                lastChars: rawText.substring(Math.max(0, rawText.length - 200))
             });
-            throw new Error(`AI 응답을 처리하는 중 오류가 발생했습니다: ${getErrorMessage(parseError)}`);
+            
+            // 불완전한 JSON인 경우 더 명확한 에러 메시지
+            if (errorMessage.includes('불완전') || errorMessage.includes('잘렸')) {
+                throw new Error(`AI 응답이 너무 길어서 중간에 잘렸습니다. 더 짧은 옵션 수(1-2개)로 다시 시도해 주세요. 원본 오류: ${errorMessage}`);
+            }
+            
+            throw new Error(`AI 응답을 처리하는 중 오류가 발생했습니다: ${errorMessage}`);
         }
         
         // 배열이 아닌 경우 배열로 변환

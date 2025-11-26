@@ -1,6 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { googleSignIn } from '../lib/firebase';
-import { useAuth } from '../lib/auth';
 
 function LiinkLogo(): React.ReactElement {
     return (
@@ -22,27 +21,6 @@ function LiinkLogo(): React.ReactElement {
 export function LoginPage(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { enableDevMode } = useAuth();
-  const clickCount = useRef(0);
-  const clickTimer = useRef<number | null>(null);
-
-  const handleLogoClick = () => {
-    clickCount.current += 1;
-
-    if (clickTimer.current) {
-        clearTimeout(clickTimer.current);
-    }
-    
-    clickTimer.current = window.setTimeout(() => {
-        clickCount.current = 0;
-    }, 1500); // Reset after 1.5 seconds
-
-    if (clickCount.current === 5) {
-        if (clickTimer.current) clearTimeout(clickTimer.current);
-        clickCount.current = 0;
-        enableDevMode();
-    }
-  };
 
 
   const handleGoogleSignIn = async () => {
@@ -62,14 +40,7 @@ export function LoginPage(): React.ReactElement {
   return (
     <div className="min-h-screen bg-gray-50 bg-grid-pattern flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full flex flex-col items-center">
-            <div 
-                onClick={handleLogoClick} 
-                className="cursor-pointer"
-                title="Click 5 times for dev mode"
-                aria-label="Liink 로고 (5번 클릭하여 개발자 모드 진입)"
-            >
-                <LiinkLogo />
-            </div>
+            <LiinkLogo />
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gray-800 tracking-tight mt-4 text-gradient text-center">
                 AI 워크숍 프로세스 디자이너
             </h1>

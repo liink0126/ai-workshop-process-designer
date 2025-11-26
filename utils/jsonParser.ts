@@ -69,8 +69,25 @@ export function extractJson<T = unknown>(text: string): T {
     try {
         return JSON.parse(jsonText) as T;
     } catch (parseError) {
-        // 파싱 실패 시 더 자세한 에러 정보 제공
+        // 파싱 실패 시 JSON이 불완전한지 확인
         const error = parseError as Error;
+        
+        // 불완전한 JSON 감지 (닫히지 않은 괄호/브레이스)
+        const openBraces = (jsonText.match(/{/g) || []).length;
+        const closeBraces = (jsonText.match(/}/g) || []).length;
+        const openBrackets = (jsonText.match(/\[/g) || []).length;
+        const closeBrackets = (jsonText.match(/\]/g) || []).length;
+        
+        const isIncomplete = openBraces !== closeBraces || openBrackets !== closeBrackets;
+        
+        if (isIncomplete) {
+            throw createJsonParseError(
+                `JSON이 불완전합니다. AI 응답이 중간에 잘렸을 수 있습니다. (열린 괄호: {${openBraces}}, 닫힌 괄호: }${closeBraces}, 열린 대괄호: [${openBrackets}], 닫힌 대괄호: ]${closeBrackets})`,
+                jsonText,
+                error
+            );
+        }
+        
         throw createJsonParseError(
             `JSON 파싱에 실패했습니다: ${error.message}`,
             jsonText,

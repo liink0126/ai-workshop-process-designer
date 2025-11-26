@@ -28,7 +28,7 @@ interface HeaderProps {
 
 
 const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, onOpenGuide, onOpenFAQ }) => {
-  const { user, userProfile, isDevMode } = useAuth();
+  const { user, userProfile } = useAuth();
   
   const NavLink: React.FC<{page: Page, children: React.ReactNode}> = ({ page, children }) => (
     <button 
@@ -46,7 +46,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, onOpenGuid
           <a href="#" onClick={(e) => { e.preventDefault(); setCurrentPage('home'); }} aria-label="홈으로">
             <LiinkLogo />
           </a>
-          {(user || isDevMode) && (
+          {user && (
             <div className="flex items-center gap-4">
               <nav className="hidden sm:flex items-center gap-2">
                 <NavLink page="home">새 워크숍 설계</NavLink>
@@ -77,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, onOpenGuid
                     )}
                   </div>
                 )}
-                {user ? (
+                {user && (
                   <>
                     <span className="text-sm font-medium text-gray-700 hidden sm:inline">{userProfile?.displayName}</span>
                     <button onClick={signOutUser} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
@@ -85,10 +85,6 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, onOpenGuid
                         <span className="hidden sm:inline">로그아웃</span>
                     </button>
                   </>
-                ) : (
-                  <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full">
-                    Developer Mode
-                  </span>
                 )}
               </div>
             </div>

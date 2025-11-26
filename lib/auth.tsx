@@ -7,8 +7,6 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  isDevMode: boolean;
-  enableDevMode: () => void;
   refetchUserProfile: () => Promise<void>;
 }
 
@@ -18,22 +16,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDevMode, setIsDevMode] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem('devMode') === 'true';
-    } catch (e) {
-      return false;
-    }
-  });
-
-  const enableDevMode = () => {
-    try {
-      sessionStorage.setItem('devMode', 'true');
-      setIsDevMode(true);
-    } catch (e) {
-      console.error("Failed to set dev mode in sessionStorage", e);
-    }
-  };
 
   const fetchProfile = async (currentUser: User | null) => {
     if (currentUser) {
@@ -65,7 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, isDevMode, enableDevMode, refetchUserProfile }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, refetchUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

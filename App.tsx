@@ -15,7 +15,7 @@ const FAQ = lazy(() => import('./components/FAQ'));
 export type Page = 'home' | 'history';
 
 const App: React.FC = () => {
-  const { user, loading, isDevMode } = useAuth();
+  const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [showGuide, setShowGuide] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
@@ -64,7 +64,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user && !isDevMode) {
+  if (!user) {
     return <LoginPage />;
   }
 
