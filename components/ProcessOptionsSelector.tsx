@@ -163,7 +163,7 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
         </div>
 
         {/* 컨텐츠 영역 */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6" style={{ maxHeight: 'calc(95vh - 200px)' }}>
           {viewMode === 'summary' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {options.map((option, index) => {
@@ -261,32 +261,31 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                   </div>
 
                   {/* 3개 열로 구분된 프로세스 비교 */}
-                  <div className="overflow-x-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-full">
-                      {comparisonData.mappedOptions.map((mapped) => (
-                        <div
-                          key={mapped.option.id}
-                          className="flex flex-col border-2 border-gray-200 rounded-lg bg-white"
-                        >
-                          {/* 옵션 헤더 */}
-                          <div className="sticky top-0 bg-white z-10 p-4 pb-3 border-b border-gray-200 rounded-t-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-bold text-lg text-indigo-600">
-                                옵션 {mapped.optionIndex}
-                              </span>
-                              {selectedIds.has(mapped.option.id) && (
-                                <CheckIcon className="w-5 h-5 text-indigo-600" />
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-700 mb-2">{mapped.option.summary}</p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <ClockIcon />
-                              <span>총 {formatTime(mapped.totalTime)}</span>
-                            </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                    {comparisonData.mappedOptions.map((mapped) => (
+                      <div
+                        key={mapped.option.id}
+                        className="flex flex-col border-2 border-gray-200 rounded-lg bg-white overflow-visible"
+                      >
+                        {/* 옵션 헤더 - 스크롤 시 고정 */}
+                        <div className="sticky top-0 bg-white z-10 p-4 pb-3 border-b border-gray-200 rounded-t-lg shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-bold text-lg text-indigo-600">
+                              옵션 {mapped.optionIndex}
+                            </span>
+                            {selectedIds.has(mapped.option.id) && (
+                              <CheckIcon className="w-5 h-5 text-indigo-600" />
+                            )}
                           </div>
+                          <p className="text-sm text-gray-700 mb-2">{mapped.option.summary}</p>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <ClockIcon />
+                            <span>총 {formatTime(mapped.totalTime)}</span>
+                          </div>
+                        </div>
 
-                          {/* 단계들을 리스트로 전체 표시 */}
-                          <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: 'calc(90vh - 200px)' }}>
+                        {/* 단계들을 리스트로 전체 표시 - 스크롤 없음 */}
+                        <div className="p-4 space-y-4 overflow-visible">
                             {mapped.steps.map((step, stepIdx) => {
                               const colors = typeColors[step.type] || typeColors['본론'];
                               const stepWithId = { ...step, id: `${mapped.option.id}-${stepIdx}` };
@@ -373,7 +372,6 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                           </div>
                         </div>
                       ))}
-                    </div>
                   </div>
                 </>
               ) : (
