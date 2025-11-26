@@ -39,8 +39,8 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
   };
 
   const handleConfirm = () => {
-    if (selectedIds.size < minSelect) {
-      alert(`최소 ${minSelect}개 이상 선택해주세요.`);
+    if (selectedIds.size === 0) {
+      alert('최소 1개 이상 선택해주세요.');
       return;
     }
 
@@ -50,7 +50,8 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
       return;
     }
     
-    onSelect(selected);
+    // 첫 번째 선택된 옵션만 사용하여 최종 프로세스 구성
+    onSelect([selected[0]]);
   };
 
   // 시간축 기반 비교 데이터 생성
@@ -260,15 +261,15 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                     </p>
                   </div>
 
-                  {/* 3개 열로 구분된 프로세스 비교 */}
+                  {/* 3개 열로 구분된 프로세스 비교 - 시간 기반 정렬 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                     {comparisonData.mappedOptions.map((mapped) => (
                       <div
                         key={mapped.option.id}
                         className="flex flex-col border-2 border-gray-200 rounded-lg bg-white overflow-visible"
                       >
-                        {/* 옵션 헤더 - 스크롤 시 고정 */}
-                        <div className="sticky top-0 bg-white z-10 p-4 pb-3 border-b border-gray-200 rounded-t-lg shadow-sm">
+                        {/* 옵션 헤더 - 박스 없이 표시 */}
+                        <div className="sticky top-0 bg-white z-10 p-4 pb-3 border-b-0 rounded-t-lg">
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-bold text-lg text-indigo-600">
                               옵션 {mapped.optionIndex}
@@ -284,38 +285,45 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                           </div>
                         </div>
 
-                        {/* 단계들을 리스트로 전체 표시 - 스크롤 없음 */}
-                        <div className="p-4 space-y-4 overflow-visible">
-                            {mapped.steps.map((step, stepIdx) => {
-                              const colors = typeColors[step.type] || typeColors['본론'];
-                              const stepWithId = { ...step, id: `${mapped.option.id}-${stepIdx}` };
-                              
-                              return (
-                                <div
-                                  key={stepIdx}
-                                  className={`${colors.bg} ${colors.border} border-2 rounded-lg p-4 shadow-sm`}
-                                >
-                                  {/* 단계 헤더 */}
-                                  <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`px-2 py-1 rounded text-xs font-semibold ${colors.text} ${colors.bg}`}>
-                                        {step.type}
-                                      </span>
-                                      <span className="text-xs text-gray-500">
-                                        {formatTime(step.startTime)} - {formatTime(step.endTime)}
-                                      </span>
-                                    </div>
-                                    <span className="text-sm font-semibold text-gray-700">
-                                      {formatTime(step.duration)}
+                        {/* 단계들을 시간에 비례한 높이로 배치 */}
+                        <div className="relative p-4" style={{ minHeight: `${(comparisonData.maxTime / 10) * 8}px` }}>
+                          {mapped.steps.map((step, stepIdx) => {
+                            const colors = typeColors[step.type] || typeColors['본론'];
+                            const topPercent = (step.startTime / comparisonData.maxTime) * 100;
+                            const heightPercent = (step.duration / comparisonData.maxTime) * 100;
+                            
+                            return (
+                              <div
+                                key={stepIdx}
+                                className={`absolute ${colors.bg} ${colors.border} border-2 rounded-lg p-4 shadow-sm w-[calc(100%-2rem)]`}
+                                style={{
+                                  top: `${topPercent}%`,
+                                  height: `${heightPercent}%`,
+                                  minHeight: '200px',
+                                }}
+                              >
+                                {/* 단계 헤더 */}
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${colors.text} ${colors.bg}`}>
+                                      {step.type}
+                                    </span>
+                                    <span className="text-sm text-gray-500">
+                                      {formatTime(step.startTime)} - {formatTime(step.endTime)}
                                     </span>
                                   </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {formatTime(step.duration)}
+                                  </span>
+                                </div>
 
-                                  {/* 제목 */}
-                                  <h4 className="font-bold text-base text-gray-800 mb-3">
-                                    {step.title}
-                                  </h4>
+                                {/* 제목 */}
+                                <h4 className="font-bold text-base text-gray-800 mb-3">
+                                  {step.title}
+                                </h4>
 
-                                  {/* 설명 (전체 내용) */}
+                                {/* 설명 (전체 내용) - 스크롤 가능 */}
+                                <div className="overflow-y-auto" style={{ maxHeight: 'calc(100% - 80px)' }}>
                                   {step.description && (() => {
                                     const parts = step.description.split('#### 퍼실리테이터의 핵심 질문');
                                     const activitiesPart = parts[0]?.replace('#### 주요 활동', '').trim() || '';
@@ -330,10 +338,10 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                                     };
                                     
                                     return (
-                                      <div className="text-sm text-gray-700 mb-3">
+                                      <div className="text-sm text-gray-700">
                                         {activitiesPart && (
                                           <div className="mb-3">
-                                            <h5 className="font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                                            <h5 className="font-semibold text-gray-600 mb-2 flex items-center gap-2 text-sm">
                                               <ClipboardDocumentListIcon className="w-4 h-4" />
                                               주요 활동
                                             </h5>
@@ -345,7 +353,7 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                                         )}
                                         {questionsPart && (
                                           <div className="mb-3">
-                                            <h5 className="font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                                            <h5 className="font-semibold text-gray-600 mb-2 flex items-center gap-2 text-sm">
                                               <QuestionMarkCircleIcon className="w-4 h-4" />
                                               퍼실리테이터의 핵심 질문
                                             </h5>
@@ -367,9 +375,10 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                                     </div>
                                   )}
                                 </div>
-                              );
-                            })}
-                          </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                         </div>
                       ))}
                   </div>
