@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateWorkshopProcess, generate3PExample, generateAlternativeStep } from '../services/geminiService';
-import { WorkshopStep, WorkshopAnalysis, WorkshopData } from '../types';
+import { WorkshopStep, WorkshopAnalysis, WorkshopData, WorkshopPreparation } from '../types';
 import { saveWorkshop } from '../lib/firebase';
 import { validateWorkshopForm } from '../utils/validation';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -17,6 +17,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
   const [formState, setFormState] = useState(DEFAULT_FORM_STATE);
   const [workshopPlan, setWorkshopPlan] = useState<WorkshopStep[] | null>(null);
   const [analysis, setAnalysis] = useState<WorkshopAnalysis | null>(null);
+  const [preparation, setPreparation] = useState<WorkshopPreparation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState(LOADING_MESSAGES[0]);
@@ -52,6 +53,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     setLoadingProgress(LOADING_PROGRESS.START);
     setWorkshopPlan(null);
     setAnalysis(null);
+    setPreparation(null);
     setIsSaved(false);
     setError(null);
 
@@ -77,10 +79,15 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
         throw new Error('워크숍 분석 정보가 생성되지 않았습니다. 다시 시도해 주세요.');
       }
 
+      if (!result.preparation) {
+        throw new Error('워크숍 준비 정보가 생성되지 않았습니다. 다시 시도해 주세요.');
+      }
+
       const planWithIds = result.plan.map(step => ({ ...step, id: crypto.randomUUID() }));
       
       setWorkshopPlan(planWithIds);
       setAnalysis(result.analysis);
+      setPreparation(result.preparation);
       setLoadingProgress(LOADING_PROGRESS.BEFORE_COMPLETE);
 
       if (user) {
@@ -90,6 +97,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
             participants: participantsAsNumber, 
             plan: result.plan,
             analysis: result.analysis,
+            preparation: result.preparation,
           });
           setIsSaved(true);
         } catch (saveError) {
@@ -178,6 +186,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     setError(null);
     setWorkshopPlan(null);
     setAnalysis(null);
+    setPreparation(null);
     setIsSaved(false);
   }, []);
 
@@ -204,6 +213,10 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
       if (templateData.analysis) {
         setAnalysis(templateData.analysis);
+      }
+
+      if (templateData.preparation) {
+        setPreparation(templateData.preparation);
       }
 
       if (onTemplateUsed) {
@@ -245,6 +258,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     workshopPlan,
     setWorkshopPlan,
     analysis,
+    preparation,
     isLoading,
     loadingProgress,
     currentLoadingMessage,

@@ -30,6 +30,7 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
     workshopPlan,
     setWorkshopPlan,
     analysis,
+    preparation,
     isLoading,
     loadingProgress,
     currentLoadingMessage,
@@ -159,6 +160,7 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
         <WorkshopResults
           workshopPlan={workshopPlan}
           analysis={analysis}
+          preparation={preparation}
           isSaved={isSaved}
           viewMode={viewMode}
           suggestingStepId={suggestingStepId || null}

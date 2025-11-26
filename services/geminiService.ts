@@ -290,7 +290,12 @@ export const generateWorkshopProcess = async (
     - **metrics**: '주제 복잡성', '결과물 도출 난이도', '참여자 동기부여', '참여자 간 갈등 가능성', '의사결정 필요성' 5개 항목에 대해 1(낮음) ~ 5(높음)점 척도로 평가한 값을 포함하는 배열.
     - **facilitatorCompetency**: 이 워크숍을 성공적으로 이끌기 위해 필요한 퍼실리테이터의 역량 수준 (0 ~ 100점).
     - **keySuccessFactors**: 워크숍 성공을 위한 가장 중요한 조건 2가지를 'title'과 'description'으로 설명하는 객체 배열.
-- 최종 결과는 **반드시 \`plan\`과 \`analysis\` 키를 포함한 JSON 객체 형식**이어야 합니다.
+- **'preparation' 객체를 반드시 포함해야 하며, 워크숍 실행을 위한 구체적인 준비 사항을 제공해야 합니다:**
+    - **materials**: 워크숍에 필요한 모든 준비물을 구체적으로 나열한 문자열 배열 (예: ["A4 용지 50장", "포스트잇 5팩 (노란색, 분홍색, 초록색)", "마커펜 10자루", "플립차트 2대", "프로젝터 1대"])
+    - **roomSetup**: 공간 배치에 대한 상세한 설명 (예: "원형 테이블 배치, 중앙에 플립차트 2대, 벽면에 스티키월 공간 확보, 각 테이블당 4명씩 배치")
+    - **preWorkshopTasks**: 워크숍 전에 완료해야 할 사전 준비 작업을 체크리스트 형식으로 나열한 문자열 배열 (예: ["참여자 사전 설문 배포 및 결과 분석", "워크숍 자료 인쇄 및 배치", "온라인 도구(Miro) 보드 준비", "참여자 사전 안내 이메일 발송"])
+    - **participantPreBrief** (선택): 참여자에게 사전에 안내할 내용 (워크숍 목적, 기대 효과, 준비 사항 등)
+- 최종 결과는 **반드시 \`plan\`, \`analysis\`, \`preparation\` 키를 포함한 JSON 객체 형식**이어야 합니다.
     `;
 
     try {
@@ -347,10 +352,33 @@ export const generateWorkshopProcess = async (
                                 }
                             },
                             required: ["difficulty", "difficultyReason", "metrics", "facilitatorCompetency", "keySuccessFactors"]
+                        },
+                        preparation: {
+                            type: Type.OBJECT,
+                            properties: {
+                                materials: {
+                                    type: Type.ARRAY,
+                                    items: { type: Type.STRING },
+                                    description: "워크숍에 필요한 준비물 목록"
+                                },
+                                roomSetup: {
+                                    type: Type.STRING,
+                                    description: "공간 배치 설명"
+                                },
+                                preWorkshopTasks: {
+                                    type: Type.ARRAY,
+                                    items: { type: Type.STRING },
+                                    description: "사전 준비 작업 체크리스트"
+                                },
+                                participantPreBrief: {
+                                    type: Type.STRING,
+                                    description: "참여자 사전 안내 내용 (선택)"
+                                }
+                            },
+                            required: ["materials", "roomSetup", "preWorkshopTasks"]
                         }
                     },
-                    // FIX: Use a string literal "plan" instead of an undefined variable `plan`.
-                    required: ["plan", "analysis"]
+                    required: ["plan", "analysis", "preparation"]
                 }
             },
         });

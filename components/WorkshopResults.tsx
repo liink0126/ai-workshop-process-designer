@@ -1,14 +1,16 @@
 import React, { useRef, useMemo, memo } from 'react';
-import { WorkshopStep, WorkshopAnalysis } from '../types';
+import { WorkshopStep, WorkshopAnalysis, WorkshopPreparation } from '../types';
 import WorkshopStepCard from './WorkshopStepCard';
 import DifficultyAnalysis from './DifficultyAnalysis';
 import WorkshopTimelineView from './WorkshopTimelineView';
+import WorkshopPreparationSection from './WorkshopPreparation';
 import { BeakerIcon, PrinterIcon, ListBulletIcon, Bars3Icon } from './Icon';
 import { formatDuration } from '../utils/format';
 
 interface WorkshopResultsProps {
   workshopPlan: WorkshopStep[];
   analysis: WorkshopAnalysis;
+  preparation?: WorkshopPreparation | null;
   isSaved: boolean;
   viewMode: 'list' | 'timeline';
   suggestingStepId: string | null;
@@ -22,6 +24,7 @@ interface WorkshopResultsProps {
 const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
   workshopPlan,
   analysis,
+  preparation,
   isSaved,
   viewMode,
   suggestingStepId,
@@ -129,6 +132,10 @@ const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
         </div>
       ) : (
         <WorkshopTimelineView plan={workshopPlan} />
+      )}
+
+      {preparation && (
+        <WorkshopPreparationSection preparation={preparation} />
       )}
     </div>
   );

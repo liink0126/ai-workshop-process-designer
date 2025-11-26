@@ -28,9 +28,17 @@ export interface WorkshopAnalysis {
   keySuccessFactors: { title: string; description: string }[];
 }
 
+export interface WorkshopPreparation {
+  materials: string[]; // 필요한 준비물 목록
+  roomSetup: string; // 공간 배치 설명
+  preWorkshopTasks: string[]; // 사전 준비 작업 체크리스트
+  participantPreBrief?: string; // 참여자 사전 안내 내용 (선택)
+}
+
 export interface WorkshopGenerationResult {
   plan: Omit<WorkshopStep, 'id'>[];
   analysis: WorkshopAnalysis;
+  preparation: WorkshopPreparation;
 }
 
 export interface WorkshopData {
@@ -43,6 +51,7 @@ export interface WorkshopData {
   participants: number;
   plan: Omit<WorkshopStep, 'id'>[];
   analysis: WorkshopAnalysis;
+  preparation?: WorkshopPreparation; // 선택적 필드 (하위 호환성)
 }
 
 export interface WorkshopDocument extends Omit<WorkshopData, 'plan'> {
