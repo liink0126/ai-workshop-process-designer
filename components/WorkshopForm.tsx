@@ -13,6 +13,7 @@ interface WorkshopFormProps {
   onUseExample: () => void;
   onAiSuggestion: () => void;
   onReset: () => void;
+  onGenerateMultiple?: () => void;
 }
 
 const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
@@ -26,6 +27,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
   onUseExample,
   onAiSuggestion,
   onReset,
+  onGenerateMultiple,
 }) => {
   return (
     <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-200 no-print animate-fade-in">
@@ -225,28 +227,41 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
-        >
-          {isLoading ? (
-            <>
-              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="hidden sm:inline">{currentLoadingMessage}</span>
-              <span className="sm:hidden">생성 중...</span>
-            </>
-          ) : (
-            <>
+        <div className="space-y-3">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="hidden sm:inline">{currentLoadingMessage}</span>
+                <span className="sm:hidden">생성 중...</span>
+              </>
+            ) : (
+              <>
+                <SparklesIcon />
+                <span className="hidden sm:inline">AI로 워크숍 설계하기</span>
+                <span className="sm:hidden">워크숍 설계</span>
+              </>
+            )}
+          </button>
+          {onGenerateMultiple && (
+            <button
+              type="button"
+              onClick={onGenerateMultiple}
+              disabled={isLoading}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-6 rounded-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
               <SparklesIcon />
-              <span className="hidden sm:inline">AI로 워크숍 설계하기</span>
-              <span className="sm:hidden">워크숍 설계</span>
-            </>
+              <span>여러 옵션 생성하기 (1-3개)</span>
+            </button>
           )}
-        </button>
+        </div>
       </form>
     </div>
   );

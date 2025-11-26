@@ -7,10 +7,13 @@ import WorkshopResults from './WorkshopResults';
 import ConsultationModal from './ConsultationModal';
 import LoadingProgress from './LoadingProgress';
 import ErrorMessage from './ErrorMessage';
+import ProcessOptionsSelector from './ProcessOptionsSelector';
+import WorkshopFeedbackModal from './WorkshopFeedbackModal';
 import { ChatBubbleLeftRightIcon } from './Icon';
 import { useWorkshopGeneration } from '../hooks/useWorkshopGeneration';
 import { WorkshopData } from '../types';
 import { DEFAULT_FORM_STATE } from '../config/constants';
+import { saveWorkshopFeedback } from '../lib/firebase';
 
 interface HomePageProps {
   setCurrentPage: (page: Page) => void;
@@ -31,22 +34,32 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
     setWorkshopPlan,
     analysis,
     preparation,
+    participantManagement,
+    execution,
+    followUp,
+    processOptions,
     isLoading,
+    isGeneratingOptions,
     loadingProgress,
     currentLoadingMessage,
     isSuggesting,
     suggestingStepId,
     error,
     isSaved,
+    savedWorkshopId,
     resultsRef,
     handleInputChange,
     handleGenerate,
+    handleGenerateMultiple,
+    handleSelectOptions,
     handleUpdateStep,
     handleSuggestAlternative,
     handleAiSuggestion,
     handleReset,
     setError,
   } = useWorkshopGeneration({ user, templateData, onTemplateUsed });
+
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const handleUseExample = useCallback(() => {
     setFormState({
@@ -129,7 +142,7 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
         <>
           <WorkshopForm
             formState={formState}
-            isLoading={isLoading}
+            isLoading={isLoading || isGeneratingOptions}
             isSuggesting={isSuggesting}
             currentLoadingMessage={currentLoadingMessage}
             loadingProgress={loadingProgress}
@@ -138,6 +151,7 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
             onUseExample={handleUseExample}
             onAiSuggestion={handleAiSuggestion}
             onReset={handleResetWithView}
+            onGenerateMultiple={handleGenerateMultiple}
           />
           {isLoading && (
             <LoadingProgress 
@@ -161,6 +175,25 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
           workshopPlan={workshopPlan}
           analysis={analysis}
           preparation={preparation}
+          participantManagement={participantManagement}
+          execution={execution}
+          followUp={followUp}
+          totalParticipants={parseInt(formState.participants, 10) || 10}
+          workshopData={{
+            purpose: formState.purpose,
+            product: formState.product,
+            participantsInfo: formState.participantsInfo,
+            workshopType: formState.workshopType,
+            flipchartAvailable: formState.flipchartAvailable,
+            duration: formState.duration,
+            participants: parseInt(formState.participants, 10) || 10,
+            plan: workshopPlan.map(step => ({ ...step, id: step.id })),
+            analysis: analysis,
+            preparation: preparation || undefined,
+            participantManagement: participantManagement || undefined,
+            execution: execution || undefined,
+            followUp: followUp || undefined,
+          }}
           isSaved={isSaved}
           viewMode={viewMode}
           suggestingStepId={suggestingStepId || null}
@@ -168,7 +201,20 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
           onSuggestAlternative={handleSuggestAlternative}
           onViewModeChange={setViewMode}
           onSort={handleSort}
+          onPlanUpdate={(updatedPlan) => setWorkshopPlan(updatedPlan)}
           onConsult={() => setIsConsultModalOpen(true)}
+          onFeedback={() => setShowFeedbackModal(true)}
+        />
+      )}
+
+      {/* 프로세스 옵션 선택 모달 */}
+      {processOptions && (
+        <ProcessOptionsSelector
+          options={processOptions}
+          onSelect={handleSelectOptions}
+          onCancel={() => setProcessOptions(null)}
+          minSelect={1}
+          maxSelect={3}
         />
       )}
 
@@ -177,6 +223,21 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
         onClose={() => setIsConsultModalOpen(false)}
         workshopPurpose={formState.purpose}
       />
+
+      {/* 워크숍 피드백 모달 */}
+      {workshopPlan && (
+        <WorkshopFeedbackModal
+          isOpen={showFeedbackModal}
+          workshopId={''} // TODO: 실제 워크숍 ID 사용
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={(feedback) => {
+            // TODO: 피드백 저장 로직 구현
+            console.log('피드백 제출:', feedback);
+            alert('피드백이 제출되었습니다. 감사합니다!');
+            setShowFeedbackModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

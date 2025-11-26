@@ -48,7 +48,8 @@ export const generateWorkshopProcess = async (
     duration: number, 
     participants: number, 
     workshopType: string, 
-    flipchartAvailable: boolean
+    flipchartAvailable: boolean,
+    previousFeedbacks?: Array<{ strengths: string[]; improvements: string[]; suggestions: string }>
 ): Promise<WorkshopGenerationResult> => {
     if (!ai) {
         throw new Error("AI 서비스가 초기화되지 않았습니다. API 키를 확인해 주세요.");
@@ -58,7 +59,29 @@ export const generateWorkshopProcess = async (
     const flipchartText = flipchartAvailable ? '예' : '아니오';
     const totalMinutes = duration * 60;
 
+    // 피드백 학습 섹션 생성
+    const feedbackLearningSection = previousFeedbacks && previousFeedbacks.length > 0 ? `
+---
+**[이전 워크숍 피드백 학습]**
+다음은 사용자들이 제공한 이전 워크숍에 대한 피드백입니다. 이 피드백을 반영하여 더 나은 워크숍을 설계해야 합니다:
+
+${previousFeedbacks.map((fb, idx) => `
+피드백 ${idx + 1}:
+- 강점: ${fb.strengths.join(', ')}
+- 개선점: ${fb.improvements.join(', ')}
+- 제안사항: ${fb.suggestions}
+`).join('\n')}
+
+**피드백 반영 원칙:**
+1. 강점은 유지하고 더 강화
+2. 개선점은 반드시 해결 방안을 제시
+3. 제안사항을 구체적으로 반영
+4. 이전 피드백의 패턴을 분석하여 근본적인 개선
+---
+` : '';
+
     const prompt = `당신은 Liink 컨설팅의 최고 수준의 수석 퍼실리테이터이자 데이터 분석가입니다. 제공된 조직의 문제 상황을 해결하기 위한 상세한 워크숍 프로세스를 설계하고, 동시에 워크숍의 성공 가능성을 다각도로 분석하여 데이터 기반의 진단 리포트를 함께 제공해야 합니다. 아래 제공되는 다양한 유형의 최고 품질 예시들을 학습하여, 그에 준하는 깊이와 구체성을 갖춘 계획과 분석을 JSON 객체 형식으로 제안해 주세요.
+${feedbackLearningSection}
 
 **핵심 원칙:**
 1.  **3P 분석 기반 설계:** 워크숍의 Purpose(목적), Product(결과물), Participant(참석자)를 깊이 분석하고 모든 설계의 기반으로 삼습니다.
@@ -295,7 +318,32 @@ export const generateWorkshopProcess = async (
     - **roomSetup**: 공간 배치에 대한 상세한 설명 (예: "원형 테이블 배치, 중앙에 플립차트 2대, 벽면에 스티키월 공간 확보, 각 테이블당 4명씩 배치")
     - **preWorkshopTasks**: 워크숍 전에 완료해야 할 사전 준비 작업을 체크리스트 형식으로 나열한 문자열 배열 (예: ["참여자 사전 설문 배포 및 결과 분석", "워크숍 자료 인쇄 및 배치", "온라인 도구(Miro) 보드 준비", "참여자 사전 안내 이메일 발송"])
     - **participantPreBrief** (선택): 참여자에게 사전에 안내할 내용 (워크숍 목적, 기대 효과, 준비 사항 등)
-- 최종 결과는 **반드시 \`plan\`, \`analysis\`, \`preparation\` 키를 포함한 JSON 객체 형식**이어야 합니다.
+- **'participantManagement' 객체를 포함하여 참여자 관리 가이드를 제공해야 합니다:**
+    - **groupStrategy**: 참여자 수(${participants}명)에 맞는 최적의 그룹 구성 전략
+        - **recommendedGroups**: 추천 그룹 수 (예: 12명이면 3-4그룹)
+        - **groupSize**: 그룹당 인원 (예: 3-4명)
+        - **strategy**: 그룹 구성 전략 설명 (랜덤, 부서별, 역할별, 경험 수준별 등 중 선택 및 이유)
+        - **groupingOptions**: 사용 가능한 그룹 구성 옵션 배열 (예: ["랜덤 구성", "부서별 구성", "역할별 구성", "경험 수준별 구성"])
+    - **roleAssignment** (선택): 역할 분담이 필요한 경우
+        - **roles**: 역할 목록 (예: ["타이머 담당", "기록자", "발표자", "시간 관리자"])
+        - **assignmentGuide**: 역할 분담 가이드
+    - **preWorkshopSurvey** (선택): 사전 조사가 유용한 경우
+        - **questions**: 사전 조사 질문 목록 (3-5개)
+        - **purpose**: 조사 목적
+- **'execution' 객체를 포함하여 워크숍 실행 가이드를 제공해야 합니다:**
+    - **timerEnabled**: 타이머 사용 권장 여부 (true/false)
+    - **timeAdjustmentGuide**: 시간 관리 가이드
+        - **ifTimeShort**: 시간이 부족할 때 대응 전략 배열 (예: ["휴식 시간 단축", "발표 시간 제한", "토론 시간 축소"])
+        - **ifTimeExtra**: 시간이 남을 때 활용 전략 배열 (예: ["추가 질의응답", "심화 토론", "네트워킹 시간"])
+- **'followUp' 객체를 포함하여 워크숍 후속 조치 가이드를 제공해야 합니다:**
+    - **actionPlans**: 워크숍에서 도출된 액션 플랜 초안 배열 (각 항목은 {task, owner, dueDate, status: "pending"} 형식). task는 구체적인 실행 과제, owner는 담당자, dueDate는 마감일(예: "2025-12-31"), status는 "pending"으로 설정
+    - **feedbackSurvey**: 참여자 피드백 수집을 위한 설문
+        - **questions**: 피드백 설문 질문 목록 (5-7개)
+        - **purpose**: 설문 목적
+    - **effectivenessMetrics**: 워크숍 효과 측정을 위한 항목
+        - **questions**: 효과 측정 질문 목록 (3-5개)
+        - **measurementGuide**: 측정 가이드 및 시기
+- 최종 결과는 **반드시 \`plan\`, \`analysis\`, \`preparation\`, \`participantManagement\`, \`execution\`, \`followUp\` 키를 포함한 JSON 객체 형식**이어야 합니다.
     `;
 
     try {
@@ -376,9 +424,112 @@ export const generateWorkshopProcess = async (
                                 }
                             },
                             required: ["materials", "roomSetup", "preWorkshopTasks"]
+                        },
+                        participantManagement: {
+                            type: Type.OBJECT,
+                            properties: {
+                                groupStrategy: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        recommendedGroups: { type: Type.NUMBER },
+                                        groupSize: { type: Type.NUMBER },
+                                        strategy: { type: Type.STRING },
+                                        groupingOptions: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        }
+                                    },
+                                    required: ["recommendedGroups", "groupSize", "strategy", "groupingOptions"]
+                                },
+                                roleAssignment: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        roles: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        },
+                                        assignmentGuide: { type: Type.STRING }
+                                    },
+                                    required: ["roles", "assignmentGuide"]
+                                },
+                                preWorkshopSurvey: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        questions: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        },
+                                        purpose: { type: Type.STRING }
+                                    },
+                                    required: ["questions", "purpose"]
+                                }
+                            },
+                            required: ["groupStrategy"]
+                        },
+                        execution: {
+                            type: Type.OBJECT,
+                            properties: {
+                                timerEnabled: { type: Type.BOOLEAN },
+                                timeAdjustmentGuide: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        ifTimeShort: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        },
+                                        ifTimeExtra: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        }
+                                    },
+                                    required: ["ifTimeShort", "ifTimeExtra"]
+                                }
+                            },
+                            required: ["timerEnabled"]
+                        },
+                        followUp: {
+                            type: Type.OBJECT,
+                            properties: {
+                                actionPlans: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            task: { type: Type.STRING },
+                                            owner: { type: Type.STRING },
+                                            dueDate: { type: Type.STRING },
+                                            status: { type: Type.STRING }
+                                        },
+                                        required: ["task", "owner", "dueDate", "status"]
+                                    }
+                                },
+                                feedbackSurvey: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        questions: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        },
+                                        purpose: { type: Type.STRING }
+                                    },
+                                    required: ["questions", "purpose"]
+                                },
+                                effectivenessMetrics: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        questions: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        },
+                                        measurementGuide: { type: Type.STRING }
+                                    },
+                                    required: ["questions", "measurementGuide"]
+                                }
+                            },
+                            required: ["actionPlans"]
                         }
                     },
-                    required: ["plan", "analysis", "preparation"]
+                    required: ["plan", "analysis", "preparation", "participantManagement", "execution", "followUp"]
                 }
             },
         });

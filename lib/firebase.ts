@@ -22,7 +22,7 @@ import {
     updateDoc,
     increment,
 } from "firebase/firestore/lite";
-import type { UserProfile, WorkshopData, WorkshopDocument, WorkshopTemplate } from "../types";
+import type { UserProfile, WorkshopData, WorkshopDocument, WorkshopTemplate, WorkshopFeedback } from "../types";
 import { getFirebaseConfig } from "../config/firebase.config";
 
 // Initialize Firebase with environment variables
@@ -199,6 +199,40 @@ export const getAllWorkshops = async (): Promise<WorkshopDocument[]> => {
     const q = query(workshopsRef, orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkshopDocument));
+};
+
+export const saveWorkshopFeedback = async (feedback: Omit<WorkshopFeedback, 'workshopId' | 'userId' | 'createdAt'>, workshopId: string): Promise<void> => {
+    if (!auth.currentUser) {
+        throw new Error("로그인이 필요합니다.");
+    }
+
+    const feedbacksColRef = collection(db, "workshopFeedbacks");
+    const newFeedbackRef = doc(feedbacksColRef);
+
+    try {
+        await setDoc(newFeedbackRef, {
+            ...feedback,
+            workshopId,
+            userId: auth.currentUser.uid,
+            createdAt: serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Save feedback failed: ", e);
+        throw new Error("피드백 저장에 실패했습니다.");
+    }
+};
+
+export const getWorkshopFeedbacks = async (workshopId: string): Promise<WorkshopFeedback[]> => {
+    const feedbacksRef = collection(db, "workshopFeedbacks");
+    const q = query(feedbacksRef, where("workshopId", "==", workshopId), orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            ...data,
+            createdAt: data.createdAt?.toDate() || new Date()
+        } as WorkshopFeedback;
+    });
 };
 
 export const saveWorkshopAsTemplate = async (workshopId: string, templateName: string): Promise<string> => {

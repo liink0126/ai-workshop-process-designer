@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateWorkshopProcess, generate3PExample, generateAlternativeStep } from '../services/geminiService';
-import { WorkshopStep, WorkshopAnalysis, WorkshopData, WorkshopPreparation } from '../types';
+import { WorkshopStep, WorkshopAnalysis, WorkshopData, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp } from '../types';
 import { saveWorkshop } from '../lib/firebase';
 import { validateWorkshopForm } from '../utils/validation';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -18,6 +18,11 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
   const [workshopPlan, setWorkshopPlan] = useState<WorkshopStep[] | null>(null);
   const [analysis, setAnalysis] = useState<WorkshopAnalysis | null>(null);
   const [preparation, setPreparation] = useState<WorkshopPreparation | null>(null);
+  const [participantManagement, setParticipantManagement] = useState<ParticipantManagement | null>(null);
+  const [execution, setExecution] = useState<WorkshopExecution | null>(null);
+  const [followUp, setFollowUp] = useState<WorkshopFollowUp | null>(null);
+  const [processOptions, setProcessOptions] = useState<ProcessOption[] | null>(null);
+  const [isGeneratingOptions, setIsGeneratingOptions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState(LOADING_MESSAGES[0]);
@@ -54,6 +59,9 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     setWorkshopPlan(null);
     setAnalysis(null);
     setPreparation(null);
+    setParticipantManagement(null);
+    setExecution(null);
+    setFollowUp(null);
     setIsSaved(false);
     setError(null);
 
@@ -88,18 +96,39 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
       setWorkshopPlan(planWithIds);
       setAnalysis(result.analysis);
       setPreparation(result.preparation);
+      if (result.participantManagement) {
+        setParticipantManagement(result.participantManagement);
+      }
+      if (result.execution) {
+        setExecution(result.execution);
+      }
+      if (result.followUp) {
+        // ActionPlan에 id 추가
+        const followUpWithIds = {
+          ...result.followUp,
+          actionPlans: result.followUp.actionPlans.map(plan => ({
+            ...plan,
+            id: plan.id || crypto.randomUUID()
+          }))
+        };
+        setFollowUp(followUpWithIds);
+      }
       setLoadingProgress(LOADING_PROGRESS.BEFORE_COMPLETE);
 
       if (user) {
         try {
-          await saveWorkshop({ 
+          const workshopId = await saveWorkshop({ 
             ...formState,
             participants: participantsAsNumber, 
             plan: result.plan,
             analysis: result.analysis,
             preparation: result.preparation,
+            participantManagement: result.participantManagement,
+            execution: result.execution,
+            followUp: result.followUp,
           });
           setIsSaved(true);
+          setSavedWorkshopId(workshopId);
         } catch (saveError) {
           console.warn('워크숍 저장 실패:', saveError);
         }
@@ -181,12 +210,132 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     }
   }, [formState.workshopType]);
 
+  const handleGenerateMultiple = useCallback(async () => {
+    setError(null);
+    const participantsAsNumber = parseInt(formState.participants, 10) || 1;
+    const validation = validateWorkshopForm({
+      ...formState,
+      participants: formState.participants,
+    });
+
+    if (!validation.isValid) {
+      setError(validation.error || '입력 정보를 확인해 주세요.');
+      return;
+    }
+
+    setIsGeneratingOptions(true);
+    setError(null);
+
+    try {
+      const options = await generateMultipleProcessOptions(
+        formState.purpose.trim(),
+        formState.product.trim(),
+        formState.participantsInfo.trim(),
+        formState.duration,
+        participantsAsNumber,
+        formState.workshopType,
+        formState.flipchartAvailable,
+        3
+      );
+      setProcessOptions(options);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(`여러 옵션 생성에 실패했습니다: ${errorMessage}`);
+      console.error('여러 옵션 생성 오류:', err);
+    } finally {
+      setIsGeneratingOptions(false);
+    }
+  }, [formState]);
+
+  const handleSelectOptions = useCallback(async (selectedOptions: ProcessOption[]) => {
+    setIsLoading(true);
+    setError(null);
+    setLoadingProgress(LOADING_PROGRESS.PROCESSING);
+
+    try {
+      const workshopData: WorkshopData = {
+        purpose: formState.purpose,
+        product: formState.product,
+        participantsInfo: formState.participantsInfo,
+        workshopType: formState.workshopType,
+        flipchartAvailable: formState.flipchartAvailable,
+        duration: formState.duration,
+        participants: parseInt(formState.participants, 10) || 10,
+        plan: [],
+        analysis: selectedOptions[0].analysis,
+        preparation: selectedOptions[0].preparation,
+      };
+
+      const result = await finalizeProcessFromOptions(selectedOptions, workshopData);
+
+      const planWithIds = result.plan.map(step => ({ ...step, id: crypto.randomUUID() }));
+      
+      setWorkshopPlan(planWithIds);
+      setAnalysis(result.analysis);
+      setPreparation(result.preparation);
+      if (result.participantManagement) {
+        setParticipantManagement(result.participantManagement);
+      }
+      if (result.execution) {
+        setExecution(result.execution);
+      }
+      if (result.followUp) {
+        const followUpWithIds = {
+          ...result.followUp,
+          actionPlans: result.followUp.actionPlans.map(plan => ({
+            ...plan,
+            id: plan.id || crypto.randomUUID()
+          }))
+        };
+        setFollowUp(followUpWithIds);
+      }
+
+      setProcessOptions(null);
+      setLoadingProgress(LOADING_PROGRESS.COMPLETE);
+
+      if (user) {
+        try {
+          const workshopId = await saveWorkshop({
+            ...formState,
+            participants: parseInt(formState.participants, 10) || 10,
+            plan: result.plan,
+            analysis: result.analysis,
+            preparation: result.preparation,
+            participantManagement: result.participantManagement,
+            execution: result.execution,
+            followUp: result.followUp,
+          });
+          setIsSaved(true);
+          setSavedWorkshopId(workshopId);
+        } catch (saveError) {
+          console.warn('워크숍 저장 실패:', saveError);
+        }
+      }
+
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setIsLoading(false);
+      }, LOADING_INTERVALS.COMPLETE_DELAY);
+
+    } catch (err) {
+      setIsLoading(false);
+      const errorMessage = getErrorMessage(err);
+      setError(`최종 프로세스 생성에 실패했습니다: ${errorMessage}`);
+      console.error('최종 프로세스 생성 오류:', err);
+    }
+  }, [formState, user]);
+
   const handleReset = useCallback(() => {
     setFormState(DEFAULT_FORM_STATE);
     setError(null);
     setWorkshopPlan(null);
     setAnalysis(null);
     setPreparation(null);
+    setParticipantManagement(null);
+    setExecution(null);
+    setFollowUp(null);
+    setProcessOptions(null);
+    setSavedWorkshopId(null);
     setIsSaved(false);
   }, []);
 
@@ -217,6 +366,18 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
       if (templateData.preparation) {
         setPreparation(templateData.preparation);
+      }
+
+      if (templateData.participantManagement) {
+        setParticipantManagement(templateData.participantManagement);
+      }
+
+      if (templateData.execution) {
+        setExecution(templateData.execution);
+      }
+
+      if (templateData.followUp) {
+        setFollowUp(templateData.followUp);
       }
 
       if (onTemplateUsed) {
@@ -259,16 +420,24 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     setWorkshopPlan,
     analysis,
     preparation,
+    participantManagement,
+    execution,
+    followUp,
+    processOptions,
     isLoading,
+    isGeneratingOptions,
     loadingProgress,
     currentLoadingMessage,
     isSuggesting,
     suggestingStepId,
     error,
     isSaved,
+    savedWorkshopId,
     resultsRef,
     handleInputChange,
     handleGenerate,
+    handleGenerateMultiple,
+    handleSelectOptions,
     handleUpdateStep,
     handleSuggestAlternative,
     handleAiSuggestion,

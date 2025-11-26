@@ -1,9 +1,12 @@
 import React, { useRef, useMemo, memo } from 'react';
-import { WorkshopStep, WorkshopAnalysis, WorkshopPreparation } from '../types';
+import { WorkshopStep, WorkshopAnalysis, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp, WorkshopData } from '../types';
 import WorkshopStepCard from './WorkshopStepCard';
 import DifficultyAnalysis from './DifficultyAnalysis';
 import WorkshopTimelineView from './WorkshopTimelineView';
 import WorkshopPreparationSection from './WorkshopPreparation';
+import ParticipantManagementSection from './ParticipantManagement';
+import WorkshopExecutionSection from './WorkshopExecution';
+import WorkshopFollowUp from './WorkshopFollowUp';
 import { BeakerIcon, PrinterIcon, ListBulletIcon, Bars3Icon } from './Icon';
 import { formatDuration } from '../utils/format';
 
@@ -11,6 +14,11 @@ interface WorkshopResultsProps {
   workshopPlan: WorkshopStep[];
   analysis: WorkshopAnalysis;
   preparation?: WorkshopPreparation | null;
+  participantManagement?: ParticipantManagement | null;
+  execution?: WorkshopExecution | null;
+  followUp?: WorkshopFollowUp | null;
+  totalParticipants: number;
+  workshopData: WorkshopData;
   isSaved: boolean;
   viewMode: 'list' | 'timeline';
   suggestingStepId: string | null;
@@ -18,13 +26,20 @@ interface WorkshopResultsProps {
   onSuggestAlternative: (stepId: string) => void;
   onViewModeChange: (mode: 'list' | 'timeline') => void;
   onSort: (dragItem: number, dragOverItem: number) => void;
+  onPlanUpdate?: (updatedPlan: WorkshopStep[]) => void;
   onConsult: () => void;
+  onFeedback?: () => void;
 }
 
 const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
   workshopPlan,
   analysis,
   preparation,
+  participantManagement,
+  execution,
+  followUp,
+  totalParticipants,
+  workshopData,
   isSaved,
   viewMode,
   suggestingStepId,
@@ -32,7 +47,9 @@ const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
   onSuggestAlternative,
   onViewModeChange,
   onSort,
+  onPlanUpdate,
   onConsult,
+  onFeedback,
 }) => {
   const resultsRef = useRef<HTMLDivElement>(null);
   const dragItem = useRef<number | null>(null);
@@ -72,14 +89,28 @@ const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
             <p className="text-xs sm:text-sm text-gray-500">총 소요 시간</p>
             <p className="font-bold text-lg sm:text-xl text-indigo-600">{formatDuration(totalDuration)}</p>
           </div>
-          <button 
-            onClick={() => window.print()} 
-            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors no-print px-3 py-1.5 sm:px-0 sm:py-0"
-          >
-            <PrinterIcon /> 
-            <span className="hidden sm:inline">PDF로 내보내기</span>
-            <span className="sm:hidden">PDF</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <button 
+              onClick={() => window.print()} 
+              className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors no-print px-3 py-1.5 sm:px-0 sm:py-0"
+            >
+              <PrinterIcon /> 
+              <span className="hidden sm:inline">PDF로 내보내기</span>
+              <span className="sm:hidden">PDF</span>
+            </button>
+            {onFeedback && (
+              <button
+                onClick={onFeedback}
+                className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors no-print px-3 py-1.5 sm:px-0 sm:py-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+                <span className="hidden sm:inline">피드백 제출</span>
+                <span className="sm:hidden">피드백</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -136,6 +167,26 @@ const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
 
       {preparation && (
         <WorkshopPreparationSection preparation={preparation} />
+      )}
+
+      {participantManagement && (
+        <ParticipantManagementSection 
+          participantManagement={participantManagement} 
+          totalParticipants={totalParticipants}
+        />
+      )}
+
+      {execution && workshopPlan && (
+        <WorkshopExecutionSection 
+          execution={execution} 
+          workshopPlan={workshopPlan}
+          workshopContext={workshopData}
+          onPlanUpdate={onPlanUpdate}
+        />
+      )}
+
+      {followUp && (
+        <WorkshopFollowUp followUp={followUp} />
       )}
     </div>
   );
