@@ -58,7 +58,8 @@ const WorkshopFormContainer: React.FC<WorkshopFormContainerProps> = ({
     <>
       <WorkshopForm
         formState={formState}
-        isLoading={isFormLoading}
+        isLoading={isLoading}
+        isGeneratingOptions={isGeneratingOptions}
         isSuggesting={isSuggesting}
         currentLoadingMessage={currentLoadingMessage}
         loadingProgress={loadingProgress}

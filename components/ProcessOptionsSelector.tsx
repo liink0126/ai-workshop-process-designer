@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ProcessOption } from '../types';
-import { SparklesIcon, CheckIcon, XMarkIcon, ArrowRightIcon, ClockIcon } from './Icon';
+import { SparklesIcon, CheckIcon, XMarkIcon, ArrowRightIcon, ClockIcon, ClipboardDocumentListIcon, QuestionMarkCircleIcon } from './Icon';
 
 interface ProcessOptionsSelectorProps {
   options: ProcessOption[];
@@ -117,7 +117,7 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[10000] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-[95vw] w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[98vw] max-h-[95vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
         <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
           <div>
@@ -260,43 +260,16 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                     </p>
                   </div>
 
-                  {/* 시간축 타임라인 비교 - 열로 구분 */}
+                  {/* 3개 열로 구분된 프로세스 비교 */}
                   <div className="overflow-x-auto">
-                    <div className="flex gap-4" style={{ minWidth: `${comparisonData.mappedOptions.length * 400}px` }}>
-                      {/* 시간 축 (왼쪽 고정) */}
-                      <div className="flex-shrink-0 w-24 sticky left-0 bg-white z-10">
-                        <div className="h-full border-r-2 border-gray-300 pr-2">
-                          <div className="text-xs font-semibold text-gray-600 mb-2">시간</div>
-                          <div className="relative" style={{ height: `${(comparisonData.maxTime / 10) * 20}px` }}>
-                            {Array.from({ length: Math.ceil(comparisonData.maxTime / 30) + 1 }).map((_, i) => {
-                              const time = i * 30;
-                              if (time > comparisonData.maxTime) return null;
-                              const position = (time / comparisonData.maxTime) * 100;
-                              return (
-                                <div
-                                  key={i}
-                                  className="absolute flex items-center gap-2"
-                                  style={{ top: `${position}%`, transform: 'translateY(-50%)' }}
-                                >
-                                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                  <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
-                                    {formatTime(time)}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 각 옵션별 컬럼 */}
-                      {comparisonData.mappedOptions.map((mapped, optionIdx) => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-full">
+                      {comparisonData.mappedOptions.map((mapped) => (
                         <div
                           key={mapped.option.id}
-                          className="flex-1 min-w-[350px] border-2 border-gray-200 rounded-lg p-4 bg-white"
+                          className="flex flex-col border-2 border-gray-200 rounded-lg bg-white"
                         >
                           {/* 옵션 헤더 */}
-                          <div className="mb-4 pb-3 border-b border-gray-200">
+                          <div className="sticky top-0 bg-white z-10 p-4 pb-3 border-b border-gray-200 rounded-t-lg">
                             <div className="flex items-center justify-between mb-2">
                               <span className="font-bold text-lg text-indigo-600">
                                 옵션 {mapped.optionIndex}
@@ -305,50 +278,95 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                                 <CheckIcon className="w-5 h-5 text-indigo-600" />
                               )}
                             </div>
-                            <p className="text-xs text-gray-600 mb-2">{mapped.option.summary}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <p className="text-sm text-gray-700 mb-2">{mapped.option.summary}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
                               <ClockIcon />
                               <span>총 {formatTime(mapped.totalTime)}</span>
                             </div>
                           </div>
 
-                          {/* 단계들을 시간축에 배치 */}
-                          <div
-                            className="relative border-l-2 border-gray-300 pl-2"
-                            style={{ height: `${(comparisonData.maxTime / 10) * 20}px` }}
-                          >
+                          {/* 단계들을 리스트로 전체 표시 */}
+                          <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: 'calc(90vh - 200px)' }}>
                             {mapped.steps.map((step, stepIdx) => {
                               const colors = typeColors[step.type] || typeColors['본론'];
-                              const topPercent = (step.startTime / comparisonData.maxTime) * 100;
-                              const heightPercent = (step.duration / comparisonData.maxTime) * 100;
-
+                              const stepWithId = { ...step, id: `${mapped.option.id}-${stepIdx}` };
+                              
                               return (
                                 <div
                                   key={stepIdx}
-                                  className={`absolute ${colors.bg} ${colors.border} border-2 rounded-lg p-2 flex flex-col shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
-                                  style={{
-                                    top: `${topPercent}%`,
-                                    height: `${Math.max(heightPercent, 5)}%`,
-                                    width: 'calc(100% - 8px)',
-                                    minHeight: '50px',
-                                    left: '4px',
-                                  }}
-                                  title={step.title}
+                                  className={`${colors.bg} ${colors.border} border-2 rounded-lg p-4 shadow-sm`}
                                 >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={`text-xs font-semibold ${colors.text}`}>
-                                      {step.type}
-                                    </span>
-                                    <span className="text-xs text-gray-500">
+                                  {/* 단계 헤더 */}
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-1 rounded text-xs font-semibold ${colors.text} ${colors.bg}`}>
+                                        {step.type}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {formatTime(step.startTime)} - {formatTime(step.endTime)}
+                                      </span>
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-700">
                                       {formatTime(step.duration)}
                                     </span>
                                   </div>
-                                  <p className="text-xs font-medium text-gray-800 line-clamp-2 flex-1">
+
+                                  {/* 제목 */}
+                                  <h4 className="font-bold text-base text-gray-800 mb-3">
                                     {step.title}
-                                  </p>
-                                  <div className="text-[10px] text-gray-500 mt-1">
-                                    {formatTime(step.startTime)} - {formatTime(step.endTime)}
-                                  </div>
+                                  </h4>
+
+                                  {/* 설명 (전체 내용) */}
+                                  {step.description && (() => {
+                                    const parts = step.description.split('#### 퍼실리테이터의 핵심 질문');
+                                    const activitiesPart = parts[0]?.replace('#### 주요 활동', '').trim() || '';
+                                    const questionsPart = parts[1]?.trim() || '';
+                                    
+                                    // Markdown 파싱 (marked 라이브러리 사용)
+                                    const parseMarkdown = (text: string) => {
+                                      if (typeof window !== 'undefined' && (window as any).marked) {
+                                        return (window as any).marked.parse(text);
+                                      }
+                                      return text;
+                                    };
+                                    
+                                    return (
+                                      <div className="text-sm text-gray-700 mb-3">
+                                        {activitiesPart && (
+                                          <div className="mb-3">
+                                            <h5 className="font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                                              <ClipboardDocumentListIcon className="w-4 h-4" />
+                                              주요 활동
+                                            </h5>
+                                            <div 
+                                              className="prose prose-sm max-w-none prose-slate" 
+                                              dangerouslySetInnerHTML={{ __html: parseMarkdown(activitiesPart) }}
+                                            />
+                                          </div>
+                                        )}
+                                        {questionsPart && (
+                                          <div className="mb-3">
+                                            <h5 className="font-semibold text-gray-600 mb-2 flex items-center gap-2">
+                                              <QuestionMarkCircleIcon className="w-4 h-4" />
+                                              퍼실리테이터의 핵심 질문
+                                            </h5>
+                                            <div 
+                                              className="prose prose-sm max-w-none prose-slate" 
+                                              dangerouslySetInnerHTML={{ __html: parseMarkdown(questionsPart) }}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* 기법 */}
+                                  {step.techniques && (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <p className="text-xs text-gray-500 mb-1">사용 기법</p>
+                                      <p className="text-sm text-gray-700">{step.techniques}</p>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}

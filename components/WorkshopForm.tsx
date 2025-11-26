@@ -6,6 +6,7 @@ import { sanitizeInput } from '../utils/sanitize';
 interface WorkshopFormProps {
   formState: typeof DEFAULT_FORM_STATE;
   isLoading: boolean;
+  isGeneratingOptions: boolean;
   isSuggesting: boolean;
   currentLoadingMessage: string;
   loadingProgress: number;
@@ -20,6 +21,7 @@ interface WorkshopFormProps {
 const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
   formState,
   isLoading,
+  isGeneratingOptions,
   isSuggesting,
   currentLoadingMessage,
   loadingProgress,
@@ -140,7 +142,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 placeholder="예: 신제품 출시 전략 수립 및 부서별 R&R 정의"
                 value={formState.purpose}
                 onChange={(e) => onInputChange('purpose', sanitizeInput(e.target.value || ''))}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingOptions}
               />
               <p className="mt-1.5 text-sm text-gray-500">
                 워크숍의 'Why'입니다. 어떤 배경에서 필요하며, 이 시간을 통해 만들고 싶은 근본적인 변화는 무엇인가요? AI가 워크숍의 핵심 컨셉을 잡는 가장 중요한 정보입니다.
@@ -158,7 +160,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 placeholder="예: 실행 과제가 담긴 통합 액션 플랜, 의사결정 원칙 합의문"
                 value={formState.product}
                 onChange={(e) => onInputChange('product', sanitizeInput(e.target.value || ''))}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingOptions}
               />
               <p className="mt-1.5 text-sm text-gray-500">
                 워크숍의 'What'입니다. 워크숍이 끝났을 때 참여자들이 손에 쥐고 가져갈 유형/무형의 결과물을 명확하게 정의해주세요.
@@ -176,7 +178,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 placeholder="예: 마케팅, 영업, 개발팀 팀장 및 실무자 12명. 평소 협업이 적어 서로의 업무 이해도가 낮음."
                 value={formState.participantsInfo}
                 onChange={(e) => onInputChange('participantsInfo', sanitizeInput(e.target.value || ''))}
-                disabled={isLoading}
+                disabled={isLoading || isGeneratingOptions}
               />
               <p className="mt-1.5 text-sm text-gray-500">
                 워크숍의 'Who'입니다. 참여자들의 직급, 역할, 성향, 관계, 사전 기대 등을 구체적으로 묘사할수록 AI가 맞춤형 활동을 설계하는 데 도움이 됩니다.
@@ -231,7 +233,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
         <div className="space-y-3">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || isGeneratingOptions}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
           >
             {isLoading ? (
@@ -258,11 +260,23 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 e.preventDefault();
                 onGenerateMultiple();
               }}
-              disabled={isLoading}
+              disabled={isLoading || isGeneratingOptions}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-6 rounded-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <SparklesIcon />
-              <span>여러 옵션 생성하기 (1-3개)</span>
+              {isGeneratingOptions ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>옵션 생성 중...</span>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon />
+                  <span>여러 옵션 생성하기 (1-3개)</span>
+                </>
+              )}
             </button>
           )}
         </div>
