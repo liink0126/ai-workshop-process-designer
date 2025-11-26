@@ -169,6 +169,8 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {options.map((option, index) => {
                 const isSelected = selectedIds.has(option.id);
+                const isPrimary = isSelected && selectedIds.size > 0 && 
+                  options.findIndex(opt => selectedIds.has(opt.id)) === options.findIndex(opt => opt.id === option.id);
                 const totalDuration = option.plan.reduce((sum, step) => sum + step.duration, 0);
 
                 return (
@@ -176,8 +178,10 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                     key={option.id}
                     onClick={() => handleToggle(option.id)}
                     className={`relative p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-indigo-600 bg-indigo-50 shadow-lg'
+                      isPrimary
+                        ? 'border-indigo-600 bg-indigo-50 shadow-lg ring-2 ring-indigo-200'
+                        : isSelected
+                        ? 'border-indigo-400 bg-indigo-50/70 shadow-md'
                         : 'border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md'
                     }`}
                   >
@@ -191,8 +195,18 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                     </div>
 
                     {/* 옵션 번호 */}
-                    <div className="mb-4">
+                    <div className="mb-4 flex items-center gap-2">
                       <span className="text-2xl font-bold text-indigo-600">옵션 {index + 1}</span>
+                      {isPrimary && (
+                        <span className="px-2 py-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full">
+                          최종 선택
+                        </span>
+                      )}
+                      {isSelected && !isPrimary && (
+                        <span className="px-2 py-0.5 bg-indigo-200 text-indigo-700 text-xs font-semibold rounded-full">
+                          선택됨
+                        </span>
+                      )}
                     </div>
 
                     {/* 요약 */}
@@ -263,27 +277,63 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
 
                   {/* 3개 열로 구분된 프로세스 비교 - 시간 기반 정렬 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-                    {comparisonData.mappedOptions.map((mapped) => (
-                      <div
-                        key={mapped.option.id}
-                        className="flex flex-col border-2 border-gray-200 rounded-lg bg-white overflow-visible"
-                      >
-                        {/* 옵션 헤더 - 박스 없이 표시 */}
-                        <div className="sticky top-0 bg-white z-10 p-4 pb-3 border-b-0 rounded-t-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-bold text-lg text-indigo-600">
-                              옵션 {mapped.optionIndex}
-                            </span>
-                            {selectedIds.has(mapped.option.id) && (
-                              <CheckIcon className="w-5 h-5 text-indigo-600" />
-                            )}
+                    {comparisonData.mappedOptions.map((mapped) => {
+                      const isSelected = selectedIds.has(mapped.option.id);
+                      const isPrimary = isSelected && selectedIds.size > 0 && 
+                        options.findIndex(opt => selectedIds.has(opt.id)) === options.findIndex(opt => opt.id === mapped.option.id);
+                      
+                      return (
+                        <div
+                          key={mapped.option.id}
+                          onClick={() => handleToggle(mapped.option.id)}
+                          className={`flex flex-col border-2 rounded-lg bg-white overflow-visible cursor-pointer transition-all duration-200 ${
+                            isPrimary 
+                              ? 'border-indigo-500 shadow-lg ring-2 ring-indigo-200' 
+                              : isSelected 
+                              ? 'border-indigo-300 shadow-md' 
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {/* 옵션 헤더 - 선택 상태 표시 */}
+                          <div className={`sticky top-0 z-10 p-4 pb-3 border-b-0 rounded-t-lg ${
+                            isPrimary ? 'bg-indigo-50' : isSelected ? 'bg-indigo-50/50' : 'bg-white'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-bold text-lg ${
+                                  isPrimary ? 'text-indigo-700' : isSelected ? 'text-indigo-600' : 'text-indigo-600'
+                                }`}>
+                                  옵션 {mapped.optionIndex}
+                                </span>
+                                {isPrimary && (
+                                  <span className="px-2 py-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full">
+                                    최종 선택
+                                  </span>
+                                )}
+                                {isSelected && !isPrimary && (
+                                  <span className="px-2 py-0.5 bg-indigo-200 text-indigo-700 text-xs font-semibold rounded-full">
+                                    선택됨
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
+                                    <CheckIcon className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center">
+                                  <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-700 mb-2">{mapped.option.summary}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <ClockIcon />
+                              <span>총 {formatTime(mapped.totalTime)}</span>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-700 mb-2">{mapped.option.summary}</p>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <ClockIcon />
-                            <span>총 {formatTime(mapped.totalTime)}</span>
-                          </div>
-                        </div>
 
                         {/* 단계들을 시간에 비례한 높이로 배치 */}
                         <div className="relative p-4" style={{ minHeight: `${(comparisonData.maxTime / 10) * 8}px` }}>
@@ -393,26 +443,46 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
         </div>
 
         {/* 하단 액션 버튼 */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            선택된 옵션: <span className="font-bold text-indigo-600">{selectedIds.size}</span> / {maxSelect}
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <div className="text-sm text-gray-600">
+                선택된 옵션: <span className="font-bold text-indigo-600">{selectedIds.size}</span> / {maxSelect}
+              </div>
+              {selectedIds.size > 0 && (
+                <div className="text-xs text-gray-500">
+                  {(() => {
+                    const selected = options.filter(opt => selectedIds.has(opt.id));
+                    const primaryOption = selected[0];
+                    const primaryIndex = options.findIndex(opt => opt.id === primaryOption.id) + 1;
+                    return `최종 선택: 옵션 ${primaryIndex}${selected.length > 1 ? ` (${selected.length}개 중 첫 번째)` : ''}`;
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onCancel}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={selectedIds.size < minSelect}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                선택 완료
+                <ArrowRightIcon />
+              </button>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onCancel}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={selectedIds.size < minSelect}
-              className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              선택 완료
-              <ArrowRightIcon />
-            </button>
-          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded">
+              <span className="font-semibold text-gray-700">💡 팁:</span>
+              <span>옵션 카드를 클릭하여 선택/해제할 수 있습니다. 여러 개 선택 시 첫 번째 선택된 옵션이 최종 프로세스로 구성됩니다.</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
