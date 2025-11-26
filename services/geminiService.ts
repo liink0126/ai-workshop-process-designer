@@ -697,24 +697,41 @@ export const generate3PFromChat = async (
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        purpose: { type: Type.STRING, description: "워크숍의 목적" },
-                        product: { type: Type.STRING, description: "워크숍의 핵심 결과물" },
-                        participantsInfo: { type: Type.STRING, description: "워크숍 참여자 정보" },
-                    },
-                    required: ["purpose", "product", "participantsInfo"],
-                }
-            },
-        });
+        const response = await callGeminiApi(
+            `generate3PFromChat-${answers.join('-').substring(0, 50)}`,
+            () => ai!.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            purpose: { type: Type.STRING, description: "워크숍의 목적" },
+                            product: { type: Type.STRING, description: "워크숍의 핵심 결과물" },
+                            participantsInfo: { type: Type.STRING, description: "워크숍 참여자 정보" },
+                        },
+                        required: ["purpose", "product", "participantsInfo"],
+                    }
+                },
+            }),
+            { retry: 1, timeout: 30000 }
+        );
         const rawText = response.text.trim();
-        return extractJson<{ purpose: string; product: string; participantsInfo: string; }>(rawText);
+        const result = extractJson<{ purpose: string; product: string; participantsInfo: string; }>(rawText);
+        
+        // 결과 검증
+        if (!result.purpose || !result.product || !result.participantsInfo) {
+            throw new Error('3P 분석 결과가 불완전합니다. 다시 시도해 주세요.');
+        }
+        
+        logger.info("3P 분석 성공", {
+            purposeLength: result.purpose.length,
+            productLength: result.product.length,
+            participantsInfoLength: result.participantsInfo.length
+        });
+        
+        return result;
     } catch (error) {
         logger.error("대화 내용 분석 실패", error, {
             answersCount: answers.length

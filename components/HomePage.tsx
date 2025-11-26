@@ -80,14 +80,14 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
   }, [handleReset]);
 
   const handleChatComplete = useCallback((data: { purpose: string; product: string; participantsInfo: string; }) => {
-    setFormState(prev => ({
-      ...prev,
+    setFormState({
+      ...formState,
       purpose: data.purpose,
       product: data.product,
       participantsInfo: data.participantsInfo,
-    }));
+    });
     setView('form');
-  }, [setFormState]);
+  }, [setFormState, formState]);
 
   const handleSort = useCallback((dragItem: number, dragOverItem: number) => {
     if (!workshopPlan) return;
