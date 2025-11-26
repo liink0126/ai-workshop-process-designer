@@ -30,6 +30,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
   const [suggestingStepId, setSuggestingStepId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [savedWorkshopId, setSavedWorkshopId] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleInputChange = useCallback((field: keyof typeof DEFAULT_FORM_STATE, value: string | number | boolean) => {
