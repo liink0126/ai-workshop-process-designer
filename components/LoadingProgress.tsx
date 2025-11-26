@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { SparklesIcon } from './Icon';
 
 interface LoadingProgressProps {
@@ -7,8 +8,22 @@ interface LoadingProgressProps {
 }
 
 const LoadingProgress: React.FC<LoadingProgressProps> = ({ message, progress }) => {
-  return (
-    <div className="fixed top-0 left-0 right-0 bottom-0 bg-black/75 flex items-center justify-center z-[9999]">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 w-screen h-screen bg-black/75 flex items-center justify-center"
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999,
+        margin: 0,
+        padding: 0
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
         <div className="flex flex-col items-center">
           <div className="relative w-20 h-20 mb-6">
@@ -25,6 +40,13 @@ const LoadingProgress: React.FC<LoadingProgressProps> = ({ message, progress }) 
       </div>
     </div>
   );
+
+  // Portal을 사용하여 body에 직접 렌더링
+  if (typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  
+  return null;
 };
 
 export default LoadingProgress;
