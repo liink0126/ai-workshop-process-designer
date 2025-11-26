@@ -38,10 +38,15 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     e.preventDefault();
     dispatch({ type: 'SET_ERROR', error: null });
 
-    const participantsAsNumber = parseInt(formState.participants, 10) || 1;
+    const participantsAsNumber = parseInt(formState.participants || '10', 10) || 1;
     const validation = validateWorkshopForm({
-      ...formState,
-      participants: formState.participants,
+      purpose: formState.purpose || '',
+      product: formState.product || '',
+      participantsInfo: formState.participantsInfo || '',
+      workshopType: formState.workshopType || 'AI에게 추천받기',
+      duration: formState.duration || 4,
+      participants: formState.participants || '10',
+      flipchartAvailable: formState.flipchartAvailable ?? true,
     });
 
     if (!validation.isValid) {
@@ -63,13 +68,13 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     try {
       dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.PROCESSING, message: LOADING_MESSAGES[1] });
       const result = await generateWorkshopProcess(
-        formState.purpose.trim(), 
-        formState.product.trim(), 
-        formState.participantsInfo.trim(), 
-        formState.duration, 
+        (formState.purpose || '').trim(), 
+        (formState.product || '').trim(), 
+        (formState.participantsInfo || '').trim(), 
+        formState.duration || 4, 
         participantsAsNumber, 
-        formState.workshopType, 
-        formState.flipchartAvailable
+        formState.workshopType || 'AI에게 추천받기', 
+        formState.flipchartAvailable ?? true
       );
       
       dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.NEAR_COMPLETE, message: LOADING_MESSAGES[2] });
@@ -112,7 +117,12 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
       if (user) {
         try {
           const workshopId = await saveWorkshop({ 
-            ...formState,
+            purpose: formState.purpose || '',
+            product: formState.product || '',
+            participantsInfo: formState.participantsInfo || '',
+            workshopType: formState.workshopType || 'AI에게 추천받기',
+            duration: formState.duration,
+            flipchartAvailable: formState.flipchartAvailable,
             participants: participantsAsNumber, 
             plan: result.plan,
             analysis: result.analysis,
@@ -158,7 +168,11 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
       const alternativeStepData = await generateAlternativeStep(
         stepToReplace,
         result.plan,
-        { purpose: formState.purpose, product: formState.product, participantsInfo: formState.participantsInfo }
+        { 
+          purpose: formState.purpose || '', 
+          product: formState.product || '', 
+          participantsInfo: formState.participantsInfo || '' 
+        }
       );
 
       const updatedPlan = result.plan.map(step => 
@@ -206,10 +220,15 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
   const handleGenerateMultiple = useCallback(async () => {
     dispatch({ type: 'SET_ERROR', error: null });
-    const participantsAsNumber = parseInt(formState.participants, 10) || 1;
+    const participantsAsNumber = parseInt(formState.participants || '10', 10) || 1;
     const validation = validateWorkshopForm({
-      ...formState,
-      participants: formState.participants,
+      purpose: formState.purpose || '',
+      product: formState.product || '',
+      participantsInfo: formState.participantsInfo || '',
+      workshopType: formState.workshopType || 'AI에게 추천받기',
+      duration: formState.duration || 4,
+      participants: formState.participants || '10',
+      flipchartAvailable: formState.flipchartAvailable ?? true,
     });
 
     if (!validation.isValid) {
@@ -222,13 +241,13 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
     try {
       const options = await generateMultipleProcessOptions(
-        formState.purpose.trim(),
-        formState.product.trim(),
-        formState.participantsInfo.trim(),
-        formState.duration,
+        (formState.purpose || '').trim(),
+        (formState.product || '').trim(),
+        (formState.participantsInfo || '').trim(),
+        formState.duration || 4,
         participantsAsNumber,
-        formState.workshopType,
-        formState.flipchartAvailable,
+        formState.workshopType || 'AI에게 추천받기',
+        formState.flipchartAvailable ?? true,
         3
       );
       dispatch({ type: 'SET_PROCESS_OPTIONS', options });
@@ -248,13 +267,13 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
     try {
       const workshopData: WorkshopData = {
-        purpose: formState.purpose,
-        product: formState.product,
-        participantsInfo: formState.participantsInfo,
-        workshopType: formState.workshopType,
+        purpose: formState.purpose || '',
+        product: formState.product || '',
+        participantsInfo: formState.participantsInfo || '',
+        workshopType: formState.workshopType || 'AI에게 추천받기',
         flipchartAvailable: formState.flipchartAvailable,
         duration: formState.duration,
-        participants: parseInt(formState.participants, 10) || 10,
+        participants: parseInt(formState.participants || '10', 10) || 10,
         plan: [],
         analysis: selectedOptions[0].analysis,
         preparation: selectedOptions[0].preparation,
@@ -291,7 +310,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
         try {
           const workshopId = await saveWorkshop({
             ...formState,
-            participants: parseInt(formState.participants, 10) || 10,
+            participants: parseInt(formState.participants || '10', 10) || 10,
             plan: result.plan,
             analysis: result.analysis,
             preparation: result.preparation,

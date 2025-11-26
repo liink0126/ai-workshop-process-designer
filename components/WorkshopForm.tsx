@@ -139,7 +139,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 bg-gray-50/50"
                 placeholder="예: 신제품 출시 전략 수립 및 부서별 R&R 정의"
                 value={formState.purpose}
-                onChange={(e) => onInputChange('purpose', sanitizeInput(e.target.value))}
+                onChange={(e) => onInputChange('purpose', sanitizeInput(e.target.value || ''))}
                 disabled={isLoading}
               />
               <p className="mt-1.5 text-sm text-gray-500">
@@ -157,7 +157,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 bg-gray-50/50"
                 placeholder="예: 실행 과제가 담긴 통합 액션 플랜, 의사결정 원칙 합의문"
                 value={formState.product}
-                onChange={(e) => onInputChange('product', sanitizeInput(e.target.value))}
+                onChange={(e) => onInputChange('product', sanitizeInput(e.target.value || ''))}
                 disabled={isLoading}
               />
               <p className="mt-1.5 text-sm text-gray-500">
@@ -175,7 +175,7 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
                 className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 bg-gray-50/50"
                 placeholder="예: 마케팅, 영업, 개발팀 팀장 및 실무자 12명. 평소 협업이 적어 서로의 업무 이해도가 낮음."
                 value={formState.participantsInfo}
-                onChange={(e) => onInputChange('participantsInfo', sanitizeInput(e.target.value))}
+                onChange={(e) => onInputChange('participantsInfo', sanitizeInput(e.target.value || ''))}
                 disabled={isLoading}
               />
               <p className="mt-1.5 text-sm text-gray-500">
@@ -254,7 +254,10 @@ const WorkshopForm: React.FC<WorkshopFormProps> = memo(({
           {onGenerateMultiple && (
             <button
               type="button"
-              onClick={onGenerateMultiple}
+              onClick={(e) => {
+                e.preventDefault();
+                onGenerateMultiple();
+              }}
               disabled={isLoading}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-6 rounded-lg transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

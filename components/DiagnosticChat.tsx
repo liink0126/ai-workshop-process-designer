@@ -124,7 +124,7 @@ const DiagnosticChat: React.FC<DiagnosticChatProps> = ({ onComplete }) => {
             <form onSubmit={handleSubmit}>
                 <textarea
                 value={currentInput}
-                onChange={(e) => setCurrentInput(sanitizeInput(e.target.value))}
+                onChange={(e) => setCurrentInput(sanitizeInput(e.target.value || ''))}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();

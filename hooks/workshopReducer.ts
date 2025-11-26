@@ -93,11 +93,18 @@ export const initialState: WorkshopState = {
 export function workshopReducer(state: WorkshopState, action: WorkshopAction): WorkshopState {
     switch (action.type) {
         case 'SET_FORM_FIELD':
+            // 문자열 필드는 항상 문자열로 보장
+            const fieldValue = action.value;
+            const stringFields: (keyof WorkshopState['form'])[] = ['purpose', 'product', 'participantsInfo', 'workshopType', 'participants'];
+            const normalizedValue = stringFields.includes(action.field) 
+                ? (fieldValue === null || fieldValue === undefined ? '' : String(fieldValue))
+                : fieldValue;
+            
             return {
                 ...state,
                 form: {
                     ...state.form,
-                    [action.field]: action.value,
+                    [action.field]: normalizedValue,
                 },
             };
 
