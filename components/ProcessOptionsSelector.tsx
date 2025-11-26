@@ -358,6 +358,10 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                     </div>
                   </div>
                 </>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <p>비교할 옵션을 선택해주세요.</p>
+                </div>
               )}
             </div>
           )}
