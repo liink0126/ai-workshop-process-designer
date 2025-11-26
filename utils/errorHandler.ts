@@ -1,4 +1,5 @@
 // 에러 처리 유틸리티
+import { logger } from './logger';
 
 export enum ErrorCode {
   NETWORK_ERROR = 'NETWORK_ERROR',
@@ -15,6 +16,55 @@ export interface AppError {
   userFriendlyMessage: string;
   originalError?: unknown;
 }
+
+/**
+ * AppError 클래스
+ * 구조화된 에러 처리를 위한 클래스
+ */
+export class AppError extends Error {
+  constructor(
+    message: string,
+    public code: ErrorCode = ErrorCode.UNKNOWN_ERROR,
+    public userFriendlyMessage: string = message,
+    public originalError?: unknown
+  ) {
+    super(message);
+    this.name = 'AppError';
+  }
+}
+
+/**
+ * 서비스 에러를 처리하고 AppError로 변환
+ * 
+ * @param error - 발생한 에러
+ * @param context - 에러 발생 컨텍스트 (예: "워크숍 생성", "API 호출")
+ * @returns AppError 인스턴스
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   await someService();
+ * } catch (error) {
+ *   throw handleServiceError(error, '워크숍 생성');
+ * }
+ * ```
+ */
+export const handleServiceError = (error: unknown, context: string): AppError => {
+  const originalError = error;
+  const errorMessage = getErrorMessage(error);
+  
+  // Sentry에 에러 전송 (프로덕션)
+  if (import.meta.env.PROD) {
+    // Sentry.captureException(error, { tags: { context } });
+  }
+  
+  return new AppError(
+    `${context}: ${errorMessage}`,
+    ErrorCode.API_ERROR,
+    `${context}에 실패했습니다. 잠시 후 다시 시도해 주세요.`,
+    originalError
+  );
+};
 
 export class WorkshopGenerationError extends Error {
   constructor(
@@ -87,7 +137,7 @@ export const createError = (error: unknown, defaultMessage?: string): WorkshopGe
 
 export const handleApiError = (error: unknown): never => {
   const workshopError = createError(error);
-  console.error('API Error:', error);
+  logger.error('API Error', error);
   throw workshopError;
 };
 

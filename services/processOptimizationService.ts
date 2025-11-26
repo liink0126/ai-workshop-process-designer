@@ -1,38 +1,20 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import type { WorkshopStep, WorkshopData, ProcessOption, WorkshopGenerationResult } from "../types";
+import { Type } from "@google/genai";
+import type { 
+    WorkshopStep, 
+    WorkshopData, 
+    ProcessOption, 
+    WorkshopGenerationResult,
+    WorkshopAnalysis,
+    WorkshopPreparation,
+    ParticipantManagement,
+    WorkshopExecution,
+    WorkshopFollowUp
+} from "../types";
 import { getErrorMessage } from "../utils/errorHandler";
+import { extractJson } from "../utils/jsonParser";
+import { logger } from "../utils/logger";
+import { callGeminiApi, ai } from "./geminiApiWrapper";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-if (!apiKey) {
-    console.warn("Gemini API 키가 설정되지 않았습니다.");
-}
-
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-
-function extractJson<T = unknown>(text: string): T {
-    const jsonMatch = text.match(/```(json)?\s*([\s\S]*?)\s*```/);
-    let jsonText;
-    
-    if (jsonMatch && jsonMatch[2]) {
-        jsonText = jsonMatch[2];
-    } else {
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = text.substring(firstBrace, lastBrace + 1);
-        } else {
-            jsonText = text;
-        }
-    }
-
-    try {
-        return JSON.parse(jsonText) as T;
-    } catch (e) {
-        console.error("Failed to parse JSON:", jsonText);
-        throw new Error("AI가 유효한 JSON 형식을 반환하지 않았습니다.");
-    }
-}
 
 /**
  * 시간 변경 시 남은 프로세스를 재구성
@@ -105,7 +87,10 @@ ${originalPlan.slice(completedSteps.length).map((s, i) => `${i + 1}. ${s.title} 
         const rawText = response.text.trim();
         return extractJson<Omit<WorkshopStep, 'id'>[]>(rawText);
     } catch (error) {
-        console.error("Error reorganizing process:", error);
+        logger.error("프로세스 재구성 실패", error, {
+            remainingTime,
+            completedStepsCount: completedSteps.length
+        });
         throw new Error(`프로세스 재구성에 실패했습니다: ${getErrorMessage(error)}`);
     }
 };
@@ -235,18 +220,65 @@ export const generateMultipleProcessOptions = async (
             },
         });
         const rawText = response.text.trim();
-        const options = extractJson<any[]>(rawText);
+        
+        // 응답이 배열이 아닌 경우 처리
+        let parsedResponse: unknown;
+        try {
+            parsedResponse = extractJson<unknown>(rawText);
+        } catch (parseError) {
+            // 파싱 실패 시 원본 텍스트 로깅
+            logger.error("JSON 파싱 실패", parseError, { 
+                rawTextPreview: rawText.substring(0, 500),
+                rawTextLength: rawText.length 
+            });
+            throw new Error(`AI 응답을 처리하는 중 오류가 발생했습니다: ${getErrorMessage(parseError)}`);
+        }
+        
+        // 배열이 아닌 경우 배열로 변환
+        const options = Array.isArray(parsedResponse) 
+            ? parsedResponse 
+            : [parsedResponse];
         
         // 각 옵션에 id 추가 및 나머지 필드 생성
-        return options.map((option, index) => ({
+        interface RawProcessOption {
+            plan?: Omit<WorkshopStep, 'id'>[];
+            analysis?: WorkshopAnalysis;
+            preparation?: WorkshopPreparation;
+            participantManagement?: ParticipantManagement;
+            execution?: WorkshopExecution;
+            followUp?: WorkshopFollowUp;
+            summary?: string;
+            pros?: string[];
+            cons?: string[];
+        }
+        
+        return options.map((option: RawProcessOption) => ({
             id: crypto.randomUUID(),
-            ...option,
+            plan: option.plan || [],
+            analysis: option.analysis || {
+                difficulty: '보통',
+                difficultyReason: '',
+                metrics: [],
+                facilitatorCompetency: 50,
+                keySuccessFactors: []
+            },
+            preparation: option.preparation || {
+                materials: [],
+                roomSetup: '',
+                preWorkshopTasks: []
+            },
             participantManagement: option.participantManagement || undefined,
             execution: option.execution || undefined,
             followUp: option.followUp || undefined,
+            summary: option.summary || '워크숍 프로세스 옵션',
+            pros: Array.isArray(option.pros) ? option.pros : [],
+            cons: Array.isArray(option.cons) ? option.cons : [],
         })) as ProcessOption[];
     } catch (error) {
-        console.error("Error generating multiple options:", error);
+        logger.error("다중 프로세스 생성 실패", error, {
+            purpose: purpose.substring(0, 50),
+            optionCount
+        });
         throw new Error(`다중 프로세스 생성에 실패했습니다: ${getErrorMessage(error)}`);
     }
 };
@@ -412,7 +444,9 @@ ${optionsSummary}
         const rawText = response.text.trim();
         return extractJson<WorkshopGenerationResult>(rawText);
     } catch (error) {
-        console.error("Error finalizing process:", error);
+        logger.error("최종 프로세스 생성 실패", error, {
+            selectedOptionsCount: selectedOptions.length
+        });
         throw new Error(`최종 프로세스 생성에 실패했습니다: ${getErrorMessage(error)}`);
     }
 };

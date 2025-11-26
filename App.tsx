@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './components/HomePage';
 import { LoginPage } from './components/ReviewPage';
 import { HistoryPage } from './components/QuizGenerator';
-import UserGuide from './components/UserGuide';
-import FAQ from './components/FAQ';
 import { useAuth } from './lib/auth';
 import { WorkshopData } from './types';
 import { getWorkshopById } from './lib/firebase';
+
+// 코드 스플리팅: 사용 빈도가 낮은 컴포넌트는 lazy loading
+const UserGuide = lazy(() => import('./components/UserGuide'));
+const FAQ = lazy(() => import('./components/FAQ'));
 
 export type Page = 'home' | 'history';
 
@@ -95,8 +97,24 @@ const App: React.FC = () => {
         {renderPage()}
       </main>
       <Footer />
-      {showGuide && <UserGuide onClose={() => setShowGuide(false)} />}
-      {showFAQ && <FAQ onClose={() => setShowFAQ(false)} />}
+      {showGuide && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-4">로딩 중...</div>
+          </div>
+        }>
+          <UserGuide onClose={() => setShowGuide(false)} />
+        </Suspense>
+      )}
+      {showFAQ && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-4">로딩 중...</div>
+          </div>
+        }>
+          <FAQ onClose={() => setShowFAQ(false)} />
+        </Suspense>
+      )}
     </div>
   );
 };

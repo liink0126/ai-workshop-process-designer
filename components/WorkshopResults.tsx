@@ -1,5 +1,5 @@
-import React, { useRef, useMemo, memo } from 'react';
-import { WorkshopStep, WorkshopAnalysis, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp, WorkshopData } from '../types';
+import React, { useRef, useMemo, memo, lazy, Suspense } from 'react';
+import { WorkshopStep, WorkshopAnalysis, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp as WorkshopFollowUpType, WorkshopData } from '../types';
 import WorkshopStepCard from './WorkshopStepCard';
 import DifficultyAnalysis from './DifficultyAnalysis';
 import WorkshopTimelineView from './WorkshopTimelineView';
@@ -10,13 +10,16 @@ import WorkshopFollowUp from './WorkshopFollowUp';
 import { BeakerIcon, PrinterIcon, ListBulletIcon, Bars3Icon } from './Icon';
 import { formatDuration } from '../utils/format';
 
+// 코드 스플리팅: 사용 빈도가 낮은 컴포넌트
+const WorkshopReport = lazy(() => import('./WorkshopReport'));
+
 interface WorkshopResultsProps {
   workshopPlan: WorkshopStep[];
   analysis: WorkshopAnalysis;
   preparation?: WorkshopPreparation | null;
   participantManagement?: ParticipantManagement | null;
   execution?: WorkshopExecution | null;
-  followUp?: WorkshopFollowUp | null;
+  followUp?: WorkshopFollowUpType | null;
   totalParticipants: number;
   workshopData: WorkshopData;
   isSaved: boolean;

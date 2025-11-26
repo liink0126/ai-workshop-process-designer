@@ -1,41 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { RealTimeSituation, SituationResponse, WorkshopStep, WorkshopData } from "../types";
 import { getErrorMessage } from "../utils/errorHandler";
+import { extractJson } from "../utils/jsonParser";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+import { getGeminiApiKey } from "../config/apiConfig";
+import { logger } from "../utils/logger";
 
-if (!apiKey) {
-    console.warn("Gemini API 키가 설정되지 않았습니다.");
-}
-
+const apiKey = getGeminiApiKey();
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-/**
- * Extracts a JSON object from a string that might be wrapped in markdown code blocks
- */
-function extractJson<T = unknown>(text: string): T {
-    const jsonMatch = text.match(/```(json)?\s*([\s\S]*?)\s*```/);
-    let jsonText;
-    
-    if (jsonMatch && jsonMatch[2]) {
-        jsonText = jsonMatch[2];
-    } else {
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = text.substring(firstBrace, lastBrace + 1);
-        } else {
-            jsonText = text;
-        }
-    }
-
-    try {
-        return JSON.parse(jsonText) as T;
-    } catch (e) {
-        console.error("Failed to parse JSON:", jsonText);
-        throw new Error("AI가 유효한 JSON 형식을 반환하지 않았습니다.");
-    }
+if (!ai) {
+    logger.warn("Gemini API 키가 설정되지 않았습니다.");
 }
+
 
 export const analyzeSituationAndGetResponse = async (
     situation: RealTimeSituation,
@@ -95,12 +72,14 @@ ${currentPlan.map((step, idx) => `${idx + 1}. ${step.title} (${step.duration}분
 `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
+        const response = await callGeminiApi(
+            `analyzeSituation-${situation.id}`,
+            () => ai!.models.generateContent({
+                model: "gemini-2.5-pro",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
                     type: Type.OBJECT,
                     properties: {
                         analysis: { type: Type.STRING },
@@ -159,11 +138,16 @@ ${currentPlan.map((step, idx) => `${idx + 1}. ${step.title} (${step.duration}분
                     required: ["analysis", "recommendedActions"]
                 }
             },
-        });
+            }),
+            { retry: 1, timeout: 60000 } // 1분 타임아웃 (실시간 상황 분석은 빠르게)
+        );
         const rawText = response.text.trim();
         return extractJson<SituationResponse>(rawText);
     } catch (error) {
-        console.error("Error analyzing situation:", error);
+        logger.error("상황 분석 실패", error, {
+            situationType: situation.type,
+            severity: situation.severity
+        });
         const errorMessage = getErrorMessage(error);
         throw new Error(`상황 분석에 실패했습니다: ${errorMessage}`);
     }

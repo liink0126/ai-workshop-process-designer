@@ -84,7 +84,10 @@ const WorkshopStepCard: React.FC<WorkshopStepCardProps> = ({ step, onUpdate, isS
     setActivePopover(activePopover === technique ? null : technique);
   };
   
-  const techniqueTags = step.techniques.split(',').map(t => t.trim()).filter(Boolean);
+  const techniqueTags = useMemo(
+    () => step.techniques.split(',').map(t => t.trim()).filter(Boolean),
+    [step.techniques]
+  );
 
   if (isEditing) {
     return (

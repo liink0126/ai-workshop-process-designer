@@ -1,12 +1,18 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+/**
+ * 워크숍 생성 커스텀 훅
+ * useReducer를 사용하여 상태 관리를 최적화
+ */
+
+import { useReducer, useCallback, useRef, useEffect } from 'react';
 import { generateWorkshopProcess, generate3PExample, generateAlternativeStep } from '../services/geminiService';
 import { generateMultipleProcessOptions, finalizeProcessFromOptions } from '../services/processOptimizationService';
-import { WorkshopStep, WorkshopAnalysis, WorkshopData, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp, ProcessOption } from '../types';
+import { WorkshopStep, WorkshopData, ProcessOption } from '../types';
 import { saveWorkshop } from '../lib/firebase';
 import { validateWorkshopForm } from '../utils/validation';
 import { getErrorMessage } from '../utils/errorHandler';
 import { LOADING_MESSAGES, DEFAULT_FORM_STATE, LOADING_PROGRESS, LOADING_INTERVALS, PROGRESS_INCREMENT } from '../config/constants';
 import { User } from 'firebase/auth';
+import { workshopReducer, initialState, type WorkshopState } from './workshopReducer';
 
 interface UseWorkshopGenerationProps {
   user: User | null;
@@ -15,35 +21,22 @@ interface UseWorkshopGenerationProps {
 }
 
 export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: UseWorkshopGenerationProps) => {
-  const [formState, setFormState] = useState(DEFAULT_FORM_STATE);
-  const [workshopPlan, setWorkshopPlan] = useState<WorkshopStep[] | null>(null);
-  const [analysis, setAnalysis] = useState<WorkshopAnalysis | null>(null);
-  const [preparation, setPreparation] = useState<WorkshopPreparation | null>(null);
-  const [participantManagement, setParticipantManagement] = useState<ParticipantManagement | null>(null);
-  const [execution, setExecution] = useState<WorkshopExecution | null>(null);
-  const [followUp, setFollowUp] = useState<WorkshopFollowUp | null>(null);
-  const [processOptions, setProcessOptions] = useState<ProcessOption[] | null>(null);
-  const [isGeneratingOptions, setIsGeneratingOptions] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [currentLoadingMessage, setCurrentLoadingMessage] = useState(LOADING_MESSAGES[0]);
-  const [isSuggesting, setIsSuggesting] = useState(false);
-  const [suggestingStepId, setSuggestingStepId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
-  const [savedWorkshopId, setSavedWorkshopId] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(workshopReducer, initialState);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const handleInputChange = useCallback((field: keyof typeof DEFAULT_FORM_STATE, value: string | number | boolean) => {
-    setFormState(prev => ({ ...prev, [field]: value }));
-    if (error) {
-      setError(null);
-    }
-  }, [error]);
+  // 상태 접근을 위한 헬퍼
+  const { form: formState, result, ui } = state;
 
-  const handleGenerate = useCallback(async (e: React.FormEvent) => {
+  const handleInputChange = useCallback((field: keyof WorkshopState['form'], value: string | number | boolean) => {
+    dispatch({ type: 'SET_FORM_FIELD', field, value });
+    if (ui.error) {
+      dispatch({ type: 'SET_ERROR', error: null });
+    }
+  }, [ui.error]);
+
+  const handleGenerateWorkshop = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    dispatch({ type: 'SET_ERROR', error: null });
 
     const participantsAsNumber = parseInt(formState.participants, 10) || 1;
     const validation = validateWorkshopForm({
@@ -52,23 +45,23 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     });
 
     if (!validation.isValid) {
-      setError(validation.error || '입력 정보를 확인해 주세요.');
+      dispatch({ type: 'SET_ERROR', error: validation.error || '입력 정보를 확인해 주세요.' });
       return;
     }
 
-    setIsLoading(true);
-    setLoadingProgress(LOADING_PROGRESS.START);
-    setWorkshopPlan(null);
-    setAnalysis(null);
-    setPreparation(null);
-    setParticipantManagement(null);
-    setExecution(null);
-    setFollowUp(null);
-    setIsSaved(false);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', isLoading: true });
+    dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.START, message: LOADING_MESSAGES[0] });
+    dispatch({ type: 'SET_PLAN', plan: null });
+    dispatch({ type: 'SET_ANALYSIS', analysis: null });
+    dispatch({ type: 'SET_PREPARATION', preparation: null });
+    dispatch({ type: 'SET_PARTICIPANT_MANAGEMENT', participantManagement: null });
+    dispatch({ type: 'SET_EXECUTION', execution: null });
+    dispatch({ type: 'SET_FOLLOW_UP', followUp: null });
+    dispatch({ type: 'SET_SAVED', isSaved: false, workshopId: null });
+    dispatch({ type: 'SET_ERROR', error: null });
 
     try {
-      setLoadingProgress(LOADING_PROGRESS.PROCESSING);
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.PROCESSING, message: LOADING_MESSAGES[1] });
       const result = await generateWorkshopProcess(
         formState.purpose.trim(), 
         formState.product.trim(), 
@@ -79,7 +72,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
         formState.flipchartAvailable
       );
       
-      setLoadingProgress(LOADING_PROGRESS.NEAR_COMPLETE);
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.NEAR_COMPLETE, message: LOADING_MESSAGES[2] });
       
       if (!result.plan || result.plan.length === 0) {
         throw new Error('워크숍 계획이 생성되지 않았습니다. 입력 정보를 확인하고 다시 시도해 주세요.');
@@ -95,17 +88,16 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
       const planWithIds = result.plan.map(step => ({ ...step, id: crypto.randomUUID() }));
       
-      setWorkshopPlan(planWithIds);
-      setAnalysis(result.analysis);
-      setPreparation(result.preparation);
+      dispatch({ type: 'SET_PLAN', plan: planWithIds });
+      dispatch({ type: 'SET_ANALYSIS', analysis: result.analysis });
+      dispatch({ type: 'SET_PREPARATION', preparation: result.preparation });
       if (result.participantManagement) {
-        setParticipantManagement(result.participantManagement);
+        dispatch({ type: 'SET_PARTICIPANT_MANAGEMENT', participantManagement: result.participantManagement });
       }
       if (result.execution) {
-        setExecution(result.execution);
+        dispatch({ type: 'SET_EXECUTION', execution: result.execution });
       }
       if (result.followUp) {
-        // ActionPlan에 id 추가
         const followUpWithIds = {
           ...result.followUp,
           actionPlans: result.followUp.actionPlans.map(plan => ({
@@ -113,9 +105,9 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
             id: plan.id || crypto.randomUUID()
           }))
         };
-        setFollowUp(followUpWithIds);
+        dispatch({ type: 'SET_FOLLOW_UP', followUp: followUpWithIds });
       }
-      setLoadingProgress(LOADING_PROGRESS.BEFORE_COMPLETE);
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.BEFORE_COMPLETE, message: LOADING_MESSAGES[3] });
 
       if (user) {
         try {
@@ -129,91 +121,91 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
             execution: result.execution,
             followUp: result.followUp,
           });
-          setIsSaved(true);
-          setSavedWorkshopId(workshopId);
+          dispatch({ type: 'SET_SAVED', isSaved: true, workshopId });
         } catch (saveError) {
           console.warn('워크숍 저장 실패:', saveError);
         }
       }
       
-      setLoadingProgress(LOADING_PROGRESS.COMPLETE);
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.COMPLETE, message: LOADING_MESSAGES[3] });
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
-        setIsLoading(false);
+        dispatch({ type: 'SET_LOADING', isLoading: false });
       }, LOADING_INTERVALS.COMPLETE_DELAY);
 
     } catch (err) {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', isLoading: false });
       const errorMessage = getErrorMessage(err);
-      setError(errorMessage);
+      dispatch({ type: 'SET_ERROR', error: errorMessage });
       console.error('워크숍 생성 오류:', err);
     }
   }, [formState, user]);
 
   const handleUpdateStep = useCallback((updatedStep: WorkshopStep) => {
-    setWorkshopPlan(prevPlan => 
-      prevPlan ? prevPlan.map(step => step.id === updatedStep.id ? updatedStep : step) : null
-    );
-  }, []);
+    if (!result.plan) return;
+    const updatedPlan = result.plan.map(step => step.id === updatedStep.id ? updatedStep : step);
+    dispatch({ type: 'UPDATE_PLAN', plan: updatedPlan });
+  }, [result.plan]);
 
   const handleSuggestAlternative = useCallback(async (stepId: string) => {
-    if (!workshopPlan) return;
-    setSuggestingStepId(stepId);
-    setError(null);
+    if (!result.plan) return;
+    dispatch({ type: 'SET_SUGGESTING', isSuggesting: true, stepId });
+    dispatch({ type: 'SET_ERROR', error: null });
     try {
-      const stepToReplace = workshopPlan.find(s => s.id === stepId);
+      const stepToReplace = result.plan.find(s => s.id === stepId);
       if (!stepToReplace) throw new Error("대체할 단계를 찾을 수 없습니다.");
 
       const alternativeStepData = await generateAlternativeStep(
         stepToReplace,
-        workshopPlan,
+        result.plan,
         { purpose: formState.purpose, product: formState.product, participantsInfo: formState.participantsInfo }
       );
 
-      setWorkshopPlan(prevPlan => {
-        if (!prevPlan) return null;
-        return prevPlan.map(step => 
-          step.id === stepId 
-          ? { ...alternativeStepData, id: stepId, duration: stepToReplace.duration }
-          : step
-        );
-      });
+      const updatedPlan = result.plan.map(step => 
+        step.id === stepId 
+        ? { ...alternativeStepData, id: stepId, duration: stepToReplace.duration }
+        : step
+      );
+      dispatch({ type: 'UPDATE_PLAN', plan: updatedPlan });
 
     } catch (err) {
       const errorMessage = getErrorMessage(err);
-      setError(`대체 모듈 제안에 실패했습니다: ${errorMessage}`);
+      dispatch({ type: 'SET_ERROR', error: `대체 모듈 제안에 실패했습니다: ${errorMessage}` });
       console.error("대체 단계 생성 오류:", err);
     } finally {
-      setSuggestingStepId(null);
+      dispatch({ type: 'SET_SUGGESTING', isSuggesting: false, stepId: null });
     }
-  }, [workshopPlan, formState]);
+  }, [result.plan, formState]);
 
   const handleAiSuggestion = useCallback(async () => {
     if (formState.workshopType === 'AI에게 추천받기') {
-      setError('먼저 워크숍 유형을 선택해주세요. AI가 유형에 맞는 예시를 추천해 드립니다.');
+      dispatch({ type: 'SET_ERROR', error: '먼저 워크숍 유형을 선택해주세요. AI가 유형에 맞는 예시를 추천해 드립니다.' });
       return;
     }
-    setIsSuggesting(true);
-    setError(null);
+    dispatch({ type: 'SET_SUGGESTING', isSuggesting: true, stepId: null });
+    dispatch({ type: 'SET_ERROR', error: null });
     try {
       const example = await generate3PExample(formState.workshopType);
-      setFormState(prev => ({
-        ...prev,
-        purpose: example.purpose,
-        product: example.product,
-        participantsInfo: example.participantsInfo,
-      }));
+      dispatch({ 
+        type: 'SET_FORM', 
+        form: {
+          ...formState,
+          purpose: example.purpose,
+          product: example.product,
+          participantsInfo: example.participantsInfo,
+        }
+      });
     } catch (err) {
       const errorMessage = getErrorMessage(err);
-      setError(`AI 추천을 받아오는 데 실패했습니다: ${errorMessage}`);
+      dispatch({ type: 'SET_ERROR', error: `AI 추천을 받아오는 데 실패했습니다: ${errorMessage}` });
       console.error('AI 추천 오류:', err);
     } finally {
-      setIsSuggesting(false);
+      dispatch({ type: 'SET_SUGGESTING', isSuggesting: false, stepId: null });
     }
-  }, [formState.workshopType]);
+  }, [formState]);
 
   const handleGenerateMultiple = useCallback(async () => {
-    setError(null);
+    dispatch({ type: 'SET_ERROR', error: null });
     const participantsAsNumber = parseInt(formState.participants, 10) || 1;
     const validation = validateWorkshopForm({
       ...formState,
@@ -221,12 +213,12 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     });
 
     if (!validation.isValid) {
-      setError(validation.error || '입력 정보를 확인해 주세요.');
+      dispatch({ type: 'SET_ERROR', error: validation.error || '입력 정보를 확인해 주세요.' });
       return;
     }
 
-    setIsGeneratingOptions(true);
-    setError(null);
+    dispatch({ type: 'SET_GENERATING_OPTIONS', isGeneratingOptions: true });
+    dispatch({ type: 'SET_ERROR', error: null });
 
     try {
       const options = await generateMultipleProcessOptions(
@@ -239,20 +231,20 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
         formState.flipchartAvailable,
         3
       );
-      setProcessOptions(options);
+      dispatch({ type: 'SET_PROCESS_OPTIONS', options });
     } catch (err) {
       const errorMessage = getErrorMessage(err);
-      setError(`여러 옵션 생성에 실패했습니다: ${errorMessage}`);
+      dispatch({ type: 'SET_ERROR', error: `여러 옵션 생성에 실패했습니다: ${errorMessage}` });
       console.error('여러 옵션 생성 오류:', err);
     } finally {
-      setIsGeneratingOptions(false);
+      dispatch({ type: 'SET_GENERATING_OPTIONS', isGeneratingOptions: false });
     }
   }, [formState]);
 
   const handleSelectOptions = useCallback(async (selectedOptions: ProcessOption[]) => {
-    setIsLoading(true);
-    setError(null);
-    setLoadingProgress(LOADING_PROGRESS.PROCESSING);
+    dispatch({ type: 'SET_LOADING', isLoading: true });
+    dispatch({ type: 'SET_ERROR', error: null });
+    dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.PROCESSING, message: LOADING_MESSAGES[1] });
 
     try {
       const workshopData: WorkshopData = {
@@ -272,14 +264,14 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
       const planWithIds = result.plan.map(step => ({ ...step, id: crypto.randomUUID() }));
       
-      setWorkshopPlan(planWithIds);
-      setAnalysis(result.analysis);
-      setPreparation(result.preparation);
+      dispatch({ type: 'SET_PLAN', plan: planWithIds });
+      dispatch({ type: 'SET_ANALYSIS', analysis: result.analysis });
+      dispatch({ type: 'SET_PREPARATION', preparation: result.preparation });
       if (result.participantManagement) {
-        setParticipantManagement(result.participantManagement);
+        dispatch({ type: 'SET_PARTICIPANT_MANAGEMENT', participantManagement: result.participantManagement });
       }
       if (result.execution) {
-        setExecution(result.execution);
+        dispatch({ type: 'SET_EXECUTION', execution: result.execution });
       }
       if (result.followUp) {
         const followUpWithIds = {
@@ -289,11 +281,11 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
             id: plan.id || crypto.randomUUID()
           }))
         };
-        setFollowUp(followUpWithIds);
+        dispatch({ type: 'SET_FOLLOW_UP', followUp: followUpWithIds });
       }
 
-      setProcessOptions(null);
-      setLoadingProgress(LOADING_PROGRESS.COMPLETE);
+      dispatch({ type: 'SET_PROCESS_OPTIONS', options: null });
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.COMPLETE, message: LOADING_MESSAGES[3] });
 
       if (user) {
         try {
@@ -307,8 +299,7 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
             execution: result.execution,
             followUp: result.followUp,
           });
-          setIsSaved(true);
-          setSavedWorkshopId(workshopId);
+          dispatch({ type: 'SET_SAVED', isSaved: true, workshopId });
         } catch (saveError) {
           console.warn('워크숍 저장 실패:', saveError);
         }
@@ -316,42 +307,47 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
-        setIsLoading(false);
+        dispatch({ type: 'SET_LOADING', isLoading: false });
       }, LOADING_INTERVALS.COMPLETE_DELAY);
 
     } catch (err) {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', isLoading: false });
       const errorMessage = getErrorMessage(err);
-      setError(`최종 프로세스 생성에 실패했습니다: ${errorMessage}`);
+      dispatch({ type: 'SET_ERROR', error: `최종 프로세스 생성에 실패했습니다: ${errorMessage}` });
       console.error('최종 프로세스 생성 오류:', err);
     }
   }, [formState, user]);
 
   const handleReset = useCallback(() => {
-    setFormState(DEFAULT_FORM_STATE);
-    setError(null);
-    setWorkshopPlan(null);
-    setAnalysis(null);
-    setPreparation(null);
-    setParticipantManagement(null);
-    setExecution(null);
-    setFollowUp(null);
-    setProcessOptions(null);
-    setSavedWorkshopId(null);
-    setIsSaved(false);
+    dispatch({ type: 'RESET' });
+  }, []);
+
+  const setFormState = useCallback((form: WorkshopState['form']) => {
+    dispatch({ type: 'SET_FORM', form });
+  }, []);
+
+  const setWorkshopPlan = useCallback((plan: WorkshopStep[] | null) => {
+    dispatch({ type: 'SET_PLAN', plan });
+  }, []);
+
+  const setError = useCallback((error: string | null) => {
+    dispatch({ type: 'SET_ERROR', error });
   }, []);
 
   // 템플릿 데이터 처리
   useEffect(() => {
     if (templateData) {
-      setFormState({
-        purpose: templateData.purpose || '',
-        product: templateData.product || '',
-        participantsInfo: templateData.participantsInfo || '',
-        workshopType: templateData.workshopType || 'AI에게 추천받기',
-        duration: templateData.duration || 4,
-        participants: String(templateData.participants || 10),
-        flipchartAvailable: templateData.flipchartAvailable || false,
+      dispatch({ 
+        type: 'SET_FORM', 
+        form: {
+          purpose: templateData.purpose || '',
+          product: templateData.product || '',
+          participantsInfo: templateData.participantsInfo || '',
+          workshopType: templateData.workshopType || 'AI에게 추천받기',
+          duration: templateData.duration || 4,
+          participants: String(templateData.participants || 10),
+          flipchartAvailable: templateData.flipchartAvailable || false,
+        }
       });
 
       if (templateData.plan && templateData.plan.length > 0) {
@@ -359,27 +355,27 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
           ...step, 
           id: step.id || crypto.randomUUID() 
         }));
-        setWorkshopPlan(planWithIds);
+        dispatch({ type: 'SET_PLAN', plan: planWithIds });
       }
 
       if (templateData.analysis) {
-        setAnalysis(templateData.analysis);
+        dispatch({ type: 'SET_ANALYSIS', analysis: templateData.analysis });
       }
 
       if (templateData.preparation) {
-        setPreparation(templateData.preparation);
+        dispatch({ type: 'SET_PREPARATION', preparation: templateData.preparation });
       }
 
       if (templateData.participantManagement) {
-        setParticipantManagement(templateData.participantManagement);
+        dispatch({ type: 'SET_PARTICIPANT_MANAGEMENT', participantManagement: templateData.participantManagement });
       }
 
       if (templateData.execution) {
-        setExecution(templateData.execution);
+        dispatch({ type: 'SET_EXECUTION', execution: templateData.execution });
       }
 
       if (templateData.followUp) {
-        setFollowUp(templateData.followUp);
+        dispatch({ type: 'SET_FOLLOW_UP', followUp: templateData.followUp });
       }
 
       if (onTemplateUsed) {
@@ -396,48 +392,49 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
 
   // 로딩 메시지 및 진행률 처리
   useEffect(() => {
-    if (isLoading) {
-      setCurrentLoadingMessage("거의 다 됐습니다! 최종 계획을 생성하고 있어요.");
-      setLoadingProgress(LOADING_PROGRESS.INITIAL);
+    if (ui.isLoading) {
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: LOADING_PROGRESS.INITIAL, message: LOADING_MESSAGES[3] });
       
       const progressInterval = setInterval(() => {
-        setLoadingProgress(prev => {
-          if (prev >= LOADING_PROGRESS.MAX_BEFORE_COMPLETE) return prev;
-          return prev + Math.random() * PROGRESS_INCREMENT;
-        });
+        const currentProgress = state.ui.loadingProgress;
+        if (currentProgress >= LOADING_PROGRESS.MAX_BEFORE_COMPLETE) {
+          return;
+        }
+        const newProgress = currentProgress + Math.random() * PROGRESS_INCREMENT;
+        dispatch({ type: 'SET_LOADING_PROGRESS', progress: newProgress, message: state.ui.currentLoadingMessage });
       }, LOADING_INTERVALS.PROGRESS_UPDATE);
       
       return () => {
         clearInterval(progressInterval);
       };
     } else {
-      setLoadingProgress(0);
+      dispatch({ type: 'SET_LOADING_PROGRESS', progress: 0, message: '' });
     }
-  }, [isLoading]);
+  }, [ui.isLoading, state.ui.loadingProgress, state.ui.currentLoadingMessage]);
 
   return {
     formState,
     setFormState,
-    workshopPlan,
+    workshopPlan: result.plan,
     setWorkshopPlan,
-    analysis,
-    preparation,
-    participantManagement,
-    execution,
-    followUp,
-    processOptions,
-    isLoading,
-    isGeneratingOptions,
-    loadingProgress,
-    currentLoadingMessage,
-    isSuggesting,
-    suggestingStepId,
-    error,
-    isSaved,
-    savedWorkshopId,
+    analysis: result.analysis,
+    preparation: result.preparation,
+    participantManagement: result.participantManagement,
+    execution: result.execution,
+    followUp: result.followUp,
+    processOptions: result.processOptions,
+    isLoading: ui.isLoading,
+    isGeneratingOptions: ui.isGeneratingOptions,
+    loadingProgress: ui.loadingProgress,
+    currentLoadingMessage: ui.currentLoadingMessage,
+    isSuggesting: ui.isSuggesting,
+    suggestingStepId: ui.suggestingStepId,
+    error: ui.error,
+    isSaved: ui.isSaved,
+    savedWorkshopId: ui.savedWorkshopId,
     resultsRef,
     handleInputChange,
-    handleGenerate,
+    handleGenerate: handleGenerateWorkshop,
     handleGenerateMultiple,
     handleSelectOptions,
     handleUpdateStep,
@@ -447,4 +444,3 @@ export const useWorkshopGeneration = ({ user, templateData, onTemplateUsed }: Us
     setError,
   };
 };
-

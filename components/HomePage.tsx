@@ -1,12 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../lib/auth';
 import { Page } from '../App';
 import DiagnosticChat from './DiagnosticChat';
-import WorkshopForm from './WorkshopForm';
-import WorkshopResults from './WorkshopResults';
+import WorkshopFormContainer from './WorkshopFormContainer';
+import WorkshopResultsContainer from './WorkshopResultsContainer';
 import ConsultationModal from './ConsultationModal';
-import LoadingProgress from './LoadingProgress';
-import ErrorMessage from './ErrorMessage';
 import ProcessOptionsSelector from './ProcessOptionsSelector';
 import WorkshopFeedbackModal from './WorkshopFeedbackModal';
 import { ChatBubbleLeftRightIcon } from './Icon';
@@ -139,64 +137,37 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
       )}
 
       {view === 'form' && (
-        <>
-          <WorkshopForm
-            formState={formState}
-            isLoading={isLoading || isGeneratingOptions}
-            isSuggesting={isSuggesting}
-            currentLoadingMessage={currentLoadingMessage}
-            loadingProgress={loadingProgress}
-            onInputChange={handleInputChange}
-            onSubmit={handleGenerate}
-            onUseExample={handleUseExample}
-            onAiSuggestion={handleAiSuggestion}
-            onReset={handleResetWithView}
-            onGenerateMultiple={handleGenerateMultiple}
-          />
-          {isLoading && (
-            <LoadingProgress 
-              message={currentLoadingMessage}
-              progress={loadingProgress}
-            />
-          )}
-        </>
-      )}
-
-      {error && (
-        <ErrorMessage 
-          message={error}
-          onClose={() => setError(null)}
-          type="error"
+        <WorkshopFormContainer
+          formState={formState}
+          isLoading={isLoading}
+          isGeneratingOptions={isGeneratingOptions}
+          isSuggesting={isSuggesting}
+          currentLoadingMessage={currentLoadingMessage}
+          loadingProgress={loadingProgress}
+          error={error}
+          onInputChange={handleInputChange}
+          onSubmit={handleGenerate}
+          onUseExample={handleUseExample}
+          onAiSuggestion={handleAiSuggestion}
+          onReset={handleResetWithView}
+          onGenerateMultiple={handleGenerateMultiple}
+          onErrorClose={() => setError(null)}
         />
       )}
 
       {workshopPlan && analysis && (
-        <WorkshopResults
+        <WorkshopResultsContainer
           workshopPlan={workshopPlan}
           analysis={analysis}
           preparation={preparation}
           participantManagement={participantManagement}
           execution={execution}
           followUp={followUp}
-          totalParticipants={parseInt(formState.participants, 10) || 10}
-          workshopData={{
-            purpose: formState.purpose,
-            product: formState.product,
-            participantsInfo: formState.participantsInfo,
-            workshopType: formState.workshopType,
-            flipchartAvailable: formState.flipchartAvailable,
-            duration: formState.duration,
-            participants: parseInt(formState.participants, 10) || 10,
-            plan: workshopPlan.map(step => ({ ...step, id: step.id })),
-            analysis: analysis,
-            preparation: preparation || undefined,
-            participantManagement: participantManagement || undefined,
-            execution: execution || undefined,
-            followUp: followUp || undefined,
-          }}
+          processOptions={processOptions}
+          formState={formState}
           isSaved={isSaved}
           viewMode={viewMode}
-          suggestingStepId={suggestingStepId || null}
+          suggestingStepId={suggestingStepId}
           onUpdateStep={handleUpdateStep}
           onSuggestAlternative={handleSuggestAlternative}
           onViewModeChange={setViewMode}
@@ -204,6 +175,7 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
           onPlanUpdate={(updatedPlan) => setWorkshopPlan(updatedPlan)}
           onConsult={() => setIsConsultModalOpen(true)}
           onFeedback={() => setShowFeedbackModal(true)}
+          onSelectOptions={handleSelectOptions}
         />
       )}
 

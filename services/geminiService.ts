@@ -1,46 +1,47 @@
-import { GoogleGenAI, Type } from "@google/genai";
+/**
+ * Gemini AI 서비스
+ * 
+ * Google Gemini API를 사용하여 워크숍 프로세스를 생성하고 관리합니다.
+ * 
+ * @module services/geminiService
+ * @see {@link https://ai.google.dev/ | Google Gemini API Documentation}
+ */
+
+import { Type } from "@google/genai";
 import type { WorkshopGenerationResult, WorkshopAnalysis, WorkshopStep } from "../types";
 import { handleApiError, getErrorMessage } from "../utils/errorHandler";
+import { extractJson } from "../utils/jsonParser";
+import { logger } from "../utils/logger";
+import { callGeminiApi, ai } from "./geminiApiWrapper";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-if (!apiKey) {
-    console.warn("Gemini API 키가 설정되지 않았습니다. .env 파일에 VITE_GEMINI_API_KEY를 설정해 주세요.");
-}
-
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 /**
- * Extracts a JSON object from a string that might be wrapped in markdown code blocks
- * or have other text around it.
- * @param text The raw text from the AI model.
- * @returns The parsed JSON object.
- * @throws An error if parsing fails.
+ * 워크숍 프로세스를 생성합니다.
+ * 
+ * @param purpose - 워크숍의 목적 (Why)
+ * @param product - 워크숍의 핵심 결과물 (What)
+ * @param participantsInfo - 참여자 정보 (Who)
+ * @param duration - 총 소요 시간 (시간 단위)
+ * @param participants - 참여자 수
+ * @param workshopType - 워크숍 유형
+ * @param flipchartAvailable - 플립차트 사용 가능 여부
+ * @param previousFeedbacks - 이전 워크숍 피드백 (선택)
+ * @returns 생성된 워크숍 프로세스 및 분석 결과
+ * @throws {Error} API 호출 실패 시
+ * 
+ * @example
+ * ```typescript
+ * const result = await generateWorkshopProcess(
+ *   "팀 소통 개선",
+ *   "소통 개선 액션 플랜",
+ *   "개발팀 10명",
+ *   4,
+ *   10,
+ *   "팀 빌딩/소통",
+ *   true
+ * );
+ * ```
  */
-function extractJson<T = unknown>(text: string): T {
-    const jsonMatch = text.match(/```(json)?\s*([\s\S]*?)\s*```/);
-    let jsonText;
-    
-    if (jsonMatch && jsonMatch[2]) {
-        jsonText = jsonMatch[2];
-    } else {
-        const firstBrace = text.indexOf('{');
-        const lastBrace = text.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = text.substring(firstBrace, lastBrace + 1);
-        } else {
-            jsonText = text;
-        }
-    }
-
-    try {
-        return JSON.parse(jsonText) as T;
-    } catch (e) {
-        console.error("Failed to parse JSON:", jsonText);
-        throw new Error("AI가 유효한 JSON 형식을 반환하지 않았습니다.");
-    }
-}
-
 export const generateWorkshopProcess = async (
     purpose: string, 
     product: string, 
@@ -347,12 +348,14 @@ ${feedbackLearningSection}
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
+        const response = await callGeminiApi(
+            'generateWorkshopProcess',
+            () => ai!.models.generateContent({
+                model: "gemini-2.5-pro",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
                     type: Type.OBJECT,
                     properties: {
                         plan: {
@@ -532,11 +535,17 @@ ${feedbackLearningSection}
                     required: ["plan", "analysis", "preparation", "participantManagement", "execution", "followUp"]
                 }
             },
-        });
+            }),
+            { retry: 1, timeout: 180000 } // 3분 타임아웃, 1회 재시도
+        );
         const rawText = response.text.trim();
         return extractJson<WorkshopGenerationResult>(rawText);
     } catch (error) {
-        console.error("Error generating workshop process:", error);
+        logger.error("워크숍 생성 실패", error, { 
+            purpose: purpose.substring(0, 50),
+            duration,
+            participants 
+        });
         const errorMessage = getErrorMessage(error);
         throw new Error(`워크숍 설계 생성에 실패했습니다: ${errorMessage}`);
     }
@@ -582,29 +591,36 @@ export const generateAlternativeStep = async (
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        type: { type: Type.STRING },
-                        title: { type: Type.STRING },
-                        duration: { type: Type.NUMBER },
-                        description: { type: Type.STRING },
-                        techniques: { type: Type.STRING },
-                        techniquesRationale: { type: Type.STRING },
-                    },
-                    required: ["type", "title", "duration", "description", "techniques", "techniquesRationale"],
-                }
-            },
-        });
+        const response = await callGeminiApi(
+            'generateAlternativeStep',
+            () => ai!.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            type: { type: Type.STRING },
+                            title: { type: Type.STRING },
+                            duration: { type: Type.NUMBER },
+                            description: { type: Type.STRING },
+                            techniques: { type: Type.STRING },
+                            techniquesRationale: { type: Type.STRING },
+                        },
+                        required: ["type", "title", "duration", "description", "techniques", "techniquesRationale"],
+                    }
+                },
+            }),
+            { retry: 1, timeout: 60000 } // 1분 타임아웃
+        );
         const rawText = response.text.trim();
         return extractJson<Omit<WorkshopStep, 'id'>>(rawText);
     } catch (error) {
-        console.error("Error generating alternative step:", error);
+        logger.error("대체 단계 생성 실패", error, {
+            stepTitle: stepToReplace.title,
+            stepType: stepToReplace.type
+        });
         const errorMessage = getErrorMessage(error);
         throw new Error(`대체 단계 생성에 실패했습니다: ${errorMessage}`);
     }
@@ -622,26 +638,30 @@ export const generate3PExample = async (
     결과는 반드시 'purpose', 'product', 'participantsInfo' 키를 가진 JSON 객체 형식으로 반환해야 합니다.`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        purpose: { type: Type.STRING, description: "워크숍의 목적 예시" },
-                        product: { type: Type.STRING, description: "워크숍의 핵심 결과물 예시" },
-                        participantsInfo: { type: Type.STRING, description: "워크숍 참여자 정보 예시" },
-                    },
-                    required: ["purpose", "product", "participantsInfo"],
-                }
-            },
-        });
+        const response = await callGeminiApi(
+            'generate3PExample',
+            () => ai!.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            purpose: { type: Type.STRING, description: "워크숍의 목적 예시" },
+                            product: { type: Type.STRING, description: "워크숍의 핵심 결과물 예시" },
+                            participantsInfo: { type: Type.STRING, description: "워크숍 참여자 정보 예시" },
+                        },
+                        required: ["purpose", "product", "participantsInfo"],
+                    }
+                },
+            }),
+            { retry: 1, timeout: 60000 }
+        );
         const rawText = response.text.trim();
         return extractJson<{ purpose: string; product: string; participantsInfo: string; }>(rawText);
     } catch (error) {
-        console.error("Error generating 3P example:", error);
+        logger.error("3P 예시 생성 실패", error);
         const errorMessage = getErrorMessage(error);
         throw new Error(`3P 예시 생성에 실패했습니다: ${errorMessage}`);
     }
@@ -696,7 +716,9 @@ export const generate3PFromChat = async (
         const rawText = response.text.trim();
         return extractJson<{ purpose: string; product: string; participantsInfo: string; }>(rawText);
     } catch (error) {
-        console.error("Error generating 3P from chat:", error);
+        logger.error("대화 내용 분석 실패", error, {
+            answersCount: answers.length
+        });
         const errorMessage = getErrorMessage(error);
         throw new Error(`대화 내용 분석에 실패했습니다: ${errorMessage}`);
     }
@@ -722,30 +744,36 @@ ${techniqueName}
 결과는 반드시 'definition', 'rationale', 'alternatives' 키를 가진 JSON 객체 형식이어야 합니다.`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        definition: { type: Type.STRING, description: "기법의 정의 및 방법" },
-                        rationale: { type: Type.STRING, description: "기법이 효과적인 이유" },
-                        alternatives: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                            description: "대체 가능한 기법 목록"
+        const response = await callGeminiApi(
+            `getTechniqueDetails-${techniqueName}`,
+            () => ai!.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            definition: { type: Type.STRING, description: "기법의 정의 및 방법" },
+                            rationale: { type: Type.STRING, description: "기법이 효과적인 이유" },
+                            alternatives: {
+                                type: Type.ARRAY,
+                                items: { type: Type.STRING },
+                                description: "대체 가능한 기법 목록"
+                            },
                         },
-                    },
-                    required: ["definition", "rationale", "alternatives"],
-                }
-            },
-        });
+                        required: ["definition", "rationale", "alternatives"],
+                    }
+                },
+            }),
+            { retry: 1, timeout: 30000 } // 30초 타임아웃
+        );
         const rawText = response.text.trim();
         return extractJson<{ definition: string; rationale: string; alternatives: string[]; }>(rawText);
     } catch (error) {
-        console.error("Error getting technique details:", error);
+        logger.error("기법 상세 정보 조회 실패", error, {
+            techniqueName
+        });
         const errorMessage = getErrorMessage(error);
         throw new Error(`기법 상세 정보를 가져오는데 실패했습니다: ${errorMessage}`);
     }

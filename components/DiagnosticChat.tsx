@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { generate3PFromChat } from '../services/geminiService';
 import { ChatBubbleLeftRightIcon } from './Icon';
+import { sanitizeInput } from '../utils/sanitize';
 
 interface Message {
     author: 'ai' | 'user';
@@ -122,8 +123,8 @@ const DiagnosticChat: React.FC<DiagnosticChatProps> = ({ onComplete }) => {
             </div>
             <form onSubmit={handleSubmit}>
                 <textarea
-                    value={currentInput}
-                    onChange={(e) => setCurrentInput(e.target.value)}
+                value={currentInput}
+                onChange={(e) => setCurrentInput(sanitizeInput(e.target.value))}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
