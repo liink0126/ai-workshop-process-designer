@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateWorkshopProcess, generate3PExample, generateAlternativeStep } from '../services/geminiService';
-import { WorkshopStep, WorkshopAnalysis, WorkshopData, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp } from '../types';
+import { generateMultipleProcessOptions, finalizeProcessFromOptions } from '../services/processOptimizationService';
+import { WorkshopStep, WorkshopAnalysis, WorkshopData, WorkshopPreparation, ParticipantManagement, WorkshopExecution, WorkshopFollowUp, ProcessOption } from '../types';
 import { saveWorkshop } from '../lib/firebase';
 import { validateWorkshopForm } from '../utils/validation';
 import { getErrorMessage } from '../utils/errorHandler';
