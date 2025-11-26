@@ -5,7 +5,7 @@
  * @module utils/sanitize
  */
 
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from 'dompurify';
 
 /**
  * 사용자 입력을 sanitize하여 XSS 공격을 방지합니다.
