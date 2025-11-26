@@ -8,7 +8,7 @@ interface LoadingProgressProps {
 
 const LoadingProgress: React.FC<LoadingProgressProps> = ({ message, progress }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed top-0 left-0 right-0 bottom-0 bg-black/75 flex items-center justify-center z-[9999]">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
         <div className="flex flex-col items-center">
           <div className="relative w-20 h-20 mb-6">
