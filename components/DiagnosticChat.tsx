@@ -61,6 +61,45 @@ const DiagnosticChat: React.FC<DiagnosticChatProps> = ({ onComplete }) => {
         setMessages(prev => [...prev, { author: 'user', text: currentInput.trim() }]);
         setCurrentInput('');
 
+        // 첫 번째 질문에 답변한 경우, 3P 정보가 충분한지 확인
+        if (newAnswers.length === 1) {
+            setIsProcessing(true);
+            setTimeout(() => {
+                setMessages(prev => [...prev, { 
+                    author: 'ai', 
+                    text: "입력해주신 내용을 분석 중입니다. 첫 번째 답변에 워크숍의 목적, 기대 결과물, 참여자 정보가 모두 포함되어 있는지 확인하고 있습니다..." 
+                }]);
+            }, 500);
+            
+            try {
+                // 첫 번째 답변만으로 3P 추출 시도
+                const result = await generate3PFromChat(newAnswers);
+                
+                // 성공적으로 추출된 경우, 바로 완료 처리
+                setTimeout(() => {
+                    setMessages(prev => [...prev, { 
+                        author: 'ai', 
+                        text: "첫 번째 답변에서 워크숍의 핵심 정보를 모두 추출했습니다. 추가 질문 없이 바로 진행하겠습니다." 
+                    }]);
+                }, 500);
+                
+                setTimeout(() => {
+                    onComplete(result);
+                }, 1500);
+            } catch (error) {
+                console.error('3P 분석 실패:', error);
+                // 분석 실패 시 다음 질문으로 진행
+                setIsProcessing(false);
+                setTimeout(() => {
+                    setMessages(prev => [...prev, { 
+                        author: 'ai', 
+                        text: questions[1] 
+                    }]);
+                }, 500);
+            }
+            return;
+        }
+
         const nextQuestionIndex = newAnswers.length;
         if (nextQuestionIndex < questions.length) {
             setTimeout(() => {

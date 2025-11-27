@@ -539,7 +539,28 @@ ${feedbackLearningSection}
             { retry: 1, timeout: 180000 } // 3분 타임아웃, 1회 재시도
         );
         const rawText = response.text.trim();
-        return extractJson<WorkshopGenerationResult>(rawText);
+        const result = extractJson<WorkshopGenerationResult>(rawText);
+        
+        // 워크숍 프로세스에 맞게 준비물 보완
+        if (result.plan && result.plan.length > 0 && result.preparation) {
+            const { enhancePreparation } = await import('../utils/workshopMaterialMatcher');
+            
+            // WorkshopStep 형식으로 변환 (id 추가)
+            const stepsWithId: WorkshopStep[] = result.plan.map((step, index) => ({
+                ...step,
+                id: `step-${index}`,
+            }));
+            
+            result.preparation = enhancePreparation(
+                result.preparation,
+                stepsWithId,
+                participants,
+                flipchartAvailable,
+                result.participantManagement?.groupStrategy?.recommendedGroups
+            );
+        }
+        
+        return result;
     } catch (error) {
         logger.error("워크숍 생성 실패", error, { 
             purpose: purpose.substring(0, 50),
@@ -673,15 +694,74 @@ export const generate3PFromChat = async (
     if (!ai) {
         throw new Error("AI 서비스가 초기화되지 않았습니다. API 키를 확인해 주세요.");
     }
+    
+    // 답변이 1개만 있는 경우 (첫 번째 질문에 모든 정보 포함)
+    if (answers.length === 1) {
+        const conversation = `
+            질문: 어떤 조직의 문제나 목표를 가지고 계신가요?
+            답변: ${answers[0]}
+        `;
+
+        const prompt = `당신은 15년 경력의 시니어 OD 컨설턴트입니다. 고객의 답변에서 워크숍 설계를 위한 3P(Purpose, Product, Participant) 정보를 모두 추출해야 합니다. 고객이 첫 번째 질문에 모든 정보를 포함해서 답변했을 수 있으므로, 답변을 면밀히 분석하여 3P 요소를 모두 찾아주세요.
+
+        **[고객의 답변]**
+        ${conversation}
+
+        **[요청사항]**
+        위 답변을 분석하여 다음 3가지 항목을 추출하고 JSON 객체로 반환하세요. 답변에 명시적으로 언급되지 않은 항목이 있다면, 답변의 맥락을 바탕으로 합리적으로 추론하여 작성해주세요.
+        1.  **purpose**: 워크숍의 근본적인 목적 (Why) - 조직의 문제나 목표
+        2.  **product**: 워크숍이 끝났을 때 손에 쥐게 될 가시적인 결과물 (What) - 기대하는 결과물이나 산출물
+        3.  **participantsInfo**: 참여자들의 특징, 관계, 상황 요약 (Who) - 참여자 정보, 인원수, 역할 등
+        `;
+
+        try {
+            const response = await callGeminiApi(
+                `generate3PFromChat-single-${answers[0].substring(0, 50)}`,
+                () => ai!.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: prompt,
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                purpose: { type: Type.STRING, description: "워크숍의 목적" },
+                                product: { type: Type.STRING, description: "워크숍의 핵심 결과물" },
+                                participantsInfo: { type: Type.STRING, description: "워크숍 참여자 정보" },
+                            },
+                            required: ["purpose", "product", "participantsInfo"],
+                        }
+                    },
+                }),
+                { retry: 1, timeout: 30000 }
+            );
+            const rawText = response.text.trim();
+            const result = extractJson<{ purpose: string; product: string; participantsInfo: string; }>(rawText);
+
+            // 결과 검증
+            if (!result.purpose || !result.product || !result.participantsInfo) {
+                throw new Error("AI 응답에서 필수 3P 정보가 누락되었습니다.");
+            }
+            return result;
+        } catch (error) {
+            logger.error("대화 내용 분석 실패 (단일 답변)", error, {
+                answersCount: answers.length
+            });
+            const errorMessage = getErrorMessage(error);
+            throw new Error(`대화 내용 분석에 실패했습니다: ${errorMessage}`);
+        }
+    }
+
+    // 기존 로직: 3개 답변이 모두 있는 경우
     const conversation = `
         질문 1: 어떤 조직의 문제나 목표를 가지고 계신가요?
-        답변 1: ${answers[0]}
+        답변 1: ${answers[0] || ''}
 
         질문 2: 해당 이슈가 해결되었을 때, 가장 이상적으로 기대하는 결과물은 무엇인가요?
-        답변 2: ${answers[1]}
+        답변 2: ${answers[1] || ''}
 
         질문 3: 이 워크숍에 참여할 사람들은 누구이며, 그들의 현재 상황이나 입장은 어떤가요?
-        답변 3: ${answers[2]}
+        답변 3: ${answers[2] || ''}
     `;
 
     const prompt = `당신은 15년 경력의 시니어 OD 컨설턴트입니다. 고객과의 초기 미팅 대화 내용을 바탕으로, 워크숍 설계를 위한 3P(Purpose, Product, Participant)를 명확하고 간결하게 정리해야 합니다. 고객의 답변에서 핵심 의도를 파악하고, 전문적인 워크숍 설계 용어로 재구성해주세요. 결과는 반드시 JSON 객체 형식이어야 합니다.

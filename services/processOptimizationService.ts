@@ -266,28 +266,54 @@ export const generateMultipleProcessOptions = async (
             cons?: string[];
         }
         
-        return options.map((option: RawProcessOption) => ({
-            id: crypto.randomUUID(),
-            plan: option.plan || [],
-            analysis: option.analysis || {
-                difficulty: '보통',
-                difficultyReason: '',
-                metrics: [],
-                facilitatorCompetency: 50,
-                keySuccessFactors: []
-            },
-            preparation: option.preparation || {
+        // 각 옵션의 준비물을 프로세스에 맞게 보완
+        const { enhancePreparation } = await import('../utils/workshopMaterialMatcher');
+        const { WorkshopStep } = await import('../types');
+        
+        return options.map((option: RawProcessOption) => {
+            const defaultPreparation: WorkshopPreparation = {
                 materials: [],
                 roomSetup: '',
                 preWorkshopTasks: []
-            },
-            participantManagement: option.participantManagement || undefined,
-            execution: option.execution || undefined,
-            followUp: option.followUp || undefined,
-            summary: option.summary || '워크숍 프로세스 옵션',
-            pros: Array.isArray(option.pros) ? option.pros : [],
-            cons: Array.isArray(option.cons) ? option.cons : [],
-        })) as ProcessOption[];
+            };
+            
+            let enhancedPreparation = option.preparation || defaultPreparation;
+            
+            // plan이 있고 preparation이 있는 경우 보완
+            if (option.plan && option.plan.length > 0) {
+                const stepsWithId = option.plan.map((step, index) => ({
+                    ...step,
+                    id: `step-${index}`,
+                })) as WorkshopStep[];
+                
+                enhancedPreparation = enhancePreparation(
+                    enhancedPreparation,
+                    stepsWithId,
+                    participants,
+                    flipchartAvailable,
+                    option.participantManagement?.groupStrategy?.recommendedGroups
+                );
+            }
+            
+            return {
+                id: crypto.randomUUID(),
+                plan: option.plan || [],
+                analysis: option.analysis || {
+                    difficulty: '보통',
+                    difficultyReason: '',
+                    metrics: [],
+                    facilitatorCompetency: 50,
+                    keySuccessFactors: []
+                },
+                preparation: enhancedPreparation,
+                participantManagement: option.participantManagement || undefined,
+                execution: option.execution || undefined,
+                followUp: option.followUp || undefined,
+                summary: option.summary || '워크숍 프로세스 옵션',
+                pros: Array.isArray(option.pros) ? option.pros : [],
+                cons: Array.isArray(option.cons) ? option.cons : [],
+            };
+        }) as ProcessOption[];
     } catch (error) {
         logger.error("다중 프로세스 생성 실패", error, {
             purpose: purpose.substring(0, 50),
@@ -456,7 +482,29 @@ ${optionsSummary}
             },
         });
         const rawText = response.text.trim();
-        return extractJson<WorkshopGenerationResult>(rawText);
+        const result = extractJson<WorkshopGenerationResult>(rawText);
+        
+        // 워크숍 프로세스에 맞게 준비물 보완
+        if (result.plan && result.plan.length > 0 && result.preparation) {
+            const { enhancePreparation } = await import('../utils/workshopMaterialMatcher');
+            const { WorkshopStep } = await import('../types');
+            
+            // WorkshopStep 형식으로 변환 (id 추가)
+            const stepsWithId: WorkshopStep[] = result.plan.map((step, index) => ({
+                ...step,
+                id: `step-${index}`,
+            }));
+            
+            result.preparation = enhancePreparation(
+                result.preparation,
+                stepsWithId,
+                workshopContext.participants,
+                workshopContext.flipchartAvailable,
+                result.participantManagement?.groupStrategy?.recommendedGroups
+            );
+        }
+        
+        return result;
     } catch (error) {
         logger.error("최종 프로세스 생성 실패", error, {
             selectedOptionsCount: selectedOptions.length

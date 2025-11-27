@@ -12,6 +12,7 @@ import { useWorkshopGeneration } from '../hooks/useWorkshopGeneration';
 import { WorkshopData } from '../types';
 import { DEFAULT_FORM_STATE } from '../config/constants';
 import { saveWorkshopFeedback } from '../lib/firebase';
+import { extractParticipantCount } from '../utils/extractParticipants';
 
 interface HomePageProps {
   setCurrentPage: (page: Page) => void;
@@ -60,6 +61,18 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const handleUseExample = useCallback(() => {
+    // 기존에 입력된 정보가 있는지 확인
+    const hasExistingData = formState.purpose || formState.product || formState.participantsInfo;
+    
+    if (hasExistingData) {
+      const confirmed = window.confirm(
+        '예제 데이터를 사용하면 현재 입력하신 내용이 모두 삭제됩니다.\n\n계속하시겠습니까?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    
     setFormState({
       purpose: '신제품 A의 시장 출시 전략을 수립하고, 관련 부서 간의 명확한 역할과 책임(R&R)을 정의하고자 합니다.',
       product: '마케팅, 영업, 개발팀의 구체적인 실행 과제가 담긴 통합 액션 플랜.',
@@ -72,19 +85,35 @@ const HomePage: React.FC<HomePageProps> = ({ setCurrentPage, templateData, onTem
     setError(null);
     setWorkshopPlan(null);
     setView('form');
-  }, [setFormState, setError, setWorkshopPlan]);
+  }, [setFormState, setError, setWorkshopPlan, formState]);
 
   const handleResetWithView = useCallback(() => {
+    const hasData = formState.purpose || formState.product || formState.participantsInfo || workshopPlan;
+    
+    if (hasData) {
+      const confirmed = window.confirm(
+        '모든 입력 내용과 생성된 워크숍 프로세스가 삭제되고 초기 화면으로 돌아갑니다.\n\n이 작업은 되돌릴 수 없습니다.\n\n계속하시겠습니까?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    
     handleReset();
     setView('start');
-  }, [handleReset]);
+  }, [handleReset, formState, workshopPlan]);
 
   const handleChatComplete = useCallback((data: { purpose: string; product: string; participantsInfo: string; }) => {
+    // participantsInfo에서 인원수 추출
+    const participantCount = extractParticipantCount(data.participantsInfo);
+    
     setFormState({
       ...formState,
       purpose: data.purpose,
       product: data.product,
       participantsInfo: data.participantsInfo,
+      // 인원수가 추출되면 자동으로 반영, 없으면 기본값 유지
+      participants: participantCount ? String(participantCount) : formState.participants || '10',
     });
     setView('form');
   }, [setFormState, formState]);
