@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ProcessOption } from '../types';
+import { AIBadge } from './AIBadge';
 import { SparklesIcon, CheckIcon, XMarkIcon, ArrowRightIcon, ClockIcon, ClipboardDocumentListIcon, QuestionMarkCircleIcon } from './Icon';
 
 interface ProcessOptionsSelectorProps {
@@ -429,8 +430,9 @@ const ProcessOptionsSelector: React.FC<ProcessOptionsSelectorProps> = ({
                             );
                           })}
                         </div>
-                        </div>
-                      ))}
+                      </div>
+                      );
+                    })}
                   </div>
                 </>
               ) : (

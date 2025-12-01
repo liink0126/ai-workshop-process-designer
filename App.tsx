@@ -4,6 +4,7 @@ import Footer from './components/Footer';
 import HomePage from './components/HomePage';
 import { LoginPage } from './components/ReviewPage';
 import { HistoryPage } from './components/QuizGenerator';
+import { AIDisclosureModal } from './components/AIDisclosureModal';
 import { useAuth } from './lib/auth';
 import { WorkshopData } from './types';
 import { getWorkshopById } from './lib/firebase';
@@ -15,12 +16,13 @@ const FAQ = lazy(() => import('./components/FAQ'));
 export type Page = 'home' | 'history';
 
 const App: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, hasAcceptedAIDisclosure, acceptAIDisclosure } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [showGuide, setShowGuide] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
   const [templateData, setTemplateData] = useState<WorkshopData | null>(null);
   const [sharedWorkshopId, setSharedWorkshopId] = useState<string | null>(null);
+  const [showAIDisclosure, setShowAIDisclosure] = useState(false);
 
   // URL 파라미터에서 워크숍 ID 읽기
   useEffect(() => {
@@ -68,6 +70,23 @@ const App: React.FC = () => {
     return <LoginPage />;
   }
 
+  // AI 동의 모달 표시 여부 확인
+  if (!hasAcceptedAIDisclosure && !showAIDisclosure) {
+    setShowAIDisclosure(true);
+  }
+
+  const handleAcceptAIDisclosure = () => {
+    acceptAIDisclosure();
+    setShowAIDisclosure(false);
+  };
+
+  const handleDeclineAIDisclosure = () => {
+    // 동의하지 않으면 로그아웃 처리
+    import('./lib/firebase').then(({ signOutUser }) => {
+      signOutUser();
+    });
+  };
+
   const handleUseTemplate = (template: { workshopData?: WorkshopData }) => {
     if (template.workshopData) {
       setTemplateData(template.workshopData);
@@ -87,6 +106,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-[#f7f8fa] bg-grid-pattern">
+      {showAIDisclosure && (
+        <AIDisclosureModal 
+          onAccept={handleAcceptAIDisclosure}
+          onDecline={handleDeclineAIDisclosure}
+        />
+      )}
       <Header 
         currentPage={currentPage} 
         setCurrentPage={setCurrentPage}

@@ -7,6 +7,7 @@ import WorkshopPreparationSection from './WorkshopPreparation';
 import ParticipantManagementSection from './ParticipantManagement';
 import WorkshopExecutionSection from './WorkshopExecution';
 import WorkshopFollowUp from './WorkshopFollowUp';
+import { AIContentWrapper } from './AIBadge';
 import { BeakerIcon, PrinterIcon, ListBulletIcon, Bars3Icon } from './Icon';
 import { formatDuration } from '../utils/format';
 
@@ -71,7 +72,8 @@ const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
   };
 
   return (
-    <div ref={resultsRef} className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-200 mt-6 sm:mt-8 animate-fade-in printable-area overflow-visible">
+    <AIContentWrapper>
+      <div ref={resultsRef} className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-200 mt-6 sm:mt-8 animate-fade-in printable-area overflow-visible">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
         <div className="flex-1">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center gap-2 sm:gap-3">
@@ -191,7 +193,8 @@ const WorkshopResults: React.FC<WorkshopResultsProps> = memo(({
       {followUp && (
         <WorkshopFollowUp followUp={followUp} />
       )}
-    </div>
+      </div>
+    </AIContentWrapper>
   );
 });
 

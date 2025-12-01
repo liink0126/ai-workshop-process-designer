@@ -8,6 +8,8 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   refetchUserProfile: () => Promise<void>;
+  hasAcceptedAIDisclosure: boolean;
+  acceptAIDisclosure: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +18,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasAcceptedAIDisclosure, setHasAcceptedAIDisclosure] = useState<boolean>(() => {
+    // localStorage에서 AI 동의 상태 확인
+    const stored = localStorage.getItem('ai_disclosure_accepted');
+    return stored === 'true';
+  });
 
   const fetchProfile = async (currentUser: User | null) => {
     if (currentUser) {
@@ -28,6 +35,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refetchUserProfile = async () => {
     await fetchProfile(user);
+  };
+
+  const acceptAIDisclosure = () => {
+    localStorage.setItem('ai_disclosure_accepted', 'true');
+    setHasAcceptedAIDisclosure(true);
   };
   
   useEffect(() => {
@@ -47,7 +59,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, refetchUserProfile }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, refetchUserProfile, hasAcceptedAIDisclosure, acceptAIDisclosure }}>
       {children}
     </AuthContext.Provider>
   );

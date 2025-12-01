@@ -5,6 +5,8 @@ import {
   signInWithPopup, 
   onAuthStateChanged, 
   signOut,
+  deleteUser,
+  reauthenticateWithPopup,
   User
 } from "firebase/auth";
 import { 
@@ -137,6 +139,77 @@ export const signOutUser = () => signOut(auth);
 
 export const onAuthUserStateChanged = (callback: (user: User | null) => void) => {
     return onAuthStateChanged(auth, callback);
+};
+
+/**
+ * 회원 탈퇴 - 개인정보 보호법 준수
+ * 사용자 계정 및 모든 관련 데이터를 삭제합니다.
+ */
+export const deleteUserAccount = async (): Promise<void> => {
+    const user = auth.currentUser;
+    if (!user) {
+        throw new Error("로그인된 사용자가 없습니다.");
+    }
+
+    try {
+        // 1. 재인증 (보안을 위해 - Google 로그인의 경우 최근 로그인이 필요할 수 있음)
+        try {
+            await reauthenticateWithPopup(user, provider);
+        } catch (reauthError) {
+            console.warn("재인증 실패, 계속 진행:", reauthError);
+            // 재인증 실패해도 계속 진행 (최근에 로그인한 경우)
+        }
+
+        // 2. Firestore에서 사용자가 생성한 모든 워크숍 삭제
+        const workshopsRef = collection(db, "workshops");
+        const userWorkshopsQuery = query(workshopsRef, where("userId", "==", user.uid));
+        const workshopsSnapshot = await getDocs(userWorkshopsQuery);
+        
+        const deletePromises = workshopsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+
+        console.log(`${workshopsSnapshot.docs.length}개의 워크숍 데이터 삭제 완료`);
+
+        // 3. Firestore에서 사용자 프로필 삭제
+        const userRef = doc(db, 'users', user.uid);
+        await deleteDoc(userRef);
+
+        console.log("사용자 프로필 삭제 완료");
+
+        // 4. localStorage에서 AI 동의 상태 삭제
+        localStorage.removeItem('ai_disclosure_accepted');
+
+        // 5. Firebase Authentication에서 사용자 계정 삭제
+        await deleteUser(user);
+
+        console.log("Firebase Authentication 계정 삭제 완료");
+
+        // 6. localStorage 정리 (deviceId는 유지 - 재가입 시 추적 방지용)
+        // deviceId는 유지하되, 다른 세션 정보는 정리
+        localStorage.removeItem('ai_disclosure_accepted');
+
+    } catch (error: any) {
+        console.error("회원 탈퇴 중 오류 발생:", error);
+        
+        // 에러 메시지 개선
+        if (error.code === 'auth/requires-recent-login') {
+            throw new Error(
+                "보안을 위해 재로그인이 필요합니다.\n\n" +
+                "로그아웃 후 다시 로그인한 뒤 탈퇴를 진행해 주세요."
+            );
+        } else if (error.code === 'permission-denied') {
+            throw new Error(
+                "데이터 삭제 권한이 없습니다.\n\n" +
+                "잠시 후 다시 시도해 주세요."
+            );
+        } else {
+            throw new Error(
+                `회원 탈퇴 처리 중 오류가 발생했습니다.\n\n` +
+                `오류 내용: ${error.message}\n\n` +
+                `계속 문제가 발생하면 고객 지원팀에 문의해 주세요.`
+            );
+        }
+    }
 };
 
 // --- Firestore ---
