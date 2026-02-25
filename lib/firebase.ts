@@ -2,11 +2,12 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged, 
   signOut,
   deleteUser,
-  reauthenticateWithPopup,
+  reauthenticateWithRedirect,
   User
 } from "firebase/auth";
 import { 
@@ -83,11 +84,23 @@ function getDeviceId(): string {
 
 // --- Authentication ---
 
-export const googleSignIn = async (): Promise<User> => {
+export const googleSignIn = async (): Promise<void> => {
     try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+        await signInWithRedirect(auth, provider);
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('network')) {
+            throw new Error('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해 주세요.');
+        }
+        throw error;
+    }
+};
+
+export const handleRedirectResult = async (): Promise<User | null> => {
+    try {
+        const result = await getRedirectResult(auth);
+        if (!result) return null;
         
+        const user = result.user;
         const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
 
@@ -103,9 +116,6 @@ export const googleSignIn = async (): Promise<User> => {
         }
         return user;
     } catch (error) {
-        if (error instanceof Error && error.message.includes('popup')) {
-            throw new Error('로그인 팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해 주세요.');
-        }
         if (error instanceof Error && error.message.includes('network')) {
             throw new Error('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해 주세요.');
         }
@@ -154,7 +164,7 @@ export const deleteUserAccount = async (): Promise<void> => {
     try {
         // 1. 재인증 (보안을 위해 - Google 로그인의 경우 최근 로그인이 필요할 수 있음)
         try {
-            await reauthenticateWithPopup(user, provider);
+            await reauthenticateWithRedirect(user, provider);
         } catch (reauthError) {
             console.warn("재인증 실패, 계속 진행:", reauthError);
             // 재인증 실패해도 계속 진행 (최근에 로그인한 경우)
