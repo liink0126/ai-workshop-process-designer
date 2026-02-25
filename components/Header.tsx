@@ -1,6 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { useAuth } from '../lib/auth';
-import { signOutUser } from '../lib/firebase';
+import { signOutUser, googleSignIn } from '../lib/firebase';
 import { LogoutIcon, BookOpenIcon, QuestionMarkCircleIcon } from './Icon';
 import { Page } from '../App';
 
@@ -76,92 +76,100 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, onOpenGuid
               AI 기반 서비스
             </span>
           </div>
-          {user && (
+          <div className="flex items-center gap-4">
+            <nav className="hidden sm:flex items-center gap-2">
+              <NavLink page="home">새 워크숍 설계</NavLink>
+              {user && <NavLink page="history">My History</NavLink>}
+            </nav>
             <div className="flex items-center gap-4">
-              <nav className="hidden sm:flex items-center gap-2">
-                <NavLink page="home">새 워크숍 설계</NavLink>
-                <NavLink page="history">My History</NavLink>
-              </nav>
-              <div className="flex items-center gap-4">
-                {(onOpenGuide || onOpenFAQ) && (
-                  <div className="flex items-center gap-2 border-r border-gray-200 pr-4 mr-2">
-                    {onOpenGuide && (
-                      <button 
-                        onClick={onOpenGuide}
-                        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors"
-                        title="사용자 가이드"
-                      >
-                        <BookOpenIcon />
-                        <span className="hidden sm:inline">가이드</span>
-                      </button>
-                    )}
-                    {onOpenFAQ && (
-                      <button 
-                        onClick={onOpenFAQ}
-                        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors"
-                        title="자주 묻는 질문"
-                      >
-                        <QuestionMarkCircleIcon />
-                        <span className="hidden sm:inline">FAQ</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-                {user && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowAccountMenu(!showAccountMenu)}
-                      className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+              {(onOpenGuide || onOpenFAQ) && (
+                <div className="flex items-center gap-2 border-r border-gray-200 pr-4 mr-2">
+                  {onOpenGuide && (
+                    <button 
+                      onClick={onOpenGuide}
+                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors"
+                      title="사용자 가이드"
                     >
-                      <span className="hidden sm:inline">{userProfile?.displayName}</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <BookOpenIcon />
+                      <span className="hidden sm:inline">가이드</span>
                     </button>
+                  )}
+                  {onOpenFAQ && (
+                    <button 
+                      onClick={onOpenFAQ}
+                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors"
+                      title="자주 묻는 질문"
+                    >
+                      <QuestionMarkCircleIcon />
+                      <span className="hidden sm:inline">FAQ</span>
+                    </button>
+                  )}
+                </div>
+              )}
+              {!user ? (
+                <button
+                  onClick={() => googleSignIn()}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                  </svg>
+                  <span>로그인</span>
+                </button>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowAccountMenu(!showAccountMenu)}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  >
+                    <span className="hidden sm:inline">{userProfile?.displayName}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
-                    {showAccountMenu && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setShowAccountMenu(false)}
-                        />
-                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                          <div className="p-3 border-b border-gray-200">
-                            <p className="text-sm font-semibold text-gray-900">{userProfile?.displayName}</p>
-                            <p className="text-xs text-gray-500">{userProfile?.email}</p>
-                          </div>
-                          <div className="py-2">
-                            <button
-                              onClick={() => {
-                                setShowAccountMenu(false);
-                                signOutUser();
-                              }}
-                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                            >
-                              <LogoutIcon />
-                              <span>로그아웃</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowAccountMenu(false);
-                                setShowDeleteModal(true);
-                              }}
-                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              <span>회원 탈퇴</span>
-                            </button>
-                          </div>
+                  {showAccountMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setShowAccountMenu(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                        <div className="p-3 border-b border-gray-200">
+                          <p className="text-sm font-semibold text-gray-900">{userProfile?.displayName}</p>
+                          <p className="text-xs text-gray-500">{userProfile?.email}</p>
                         </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+                        <div className="py-2">
+                          <button
+                            onClick={() => {
+                              setShowAccountMenu(false);
+                              signOutUser();
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <LogoutIcon />
+                            <span>로그아웃</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowAccountMenu(false);
+                              setShowDeleteModal(true);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>회원 탈퇴</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
       </header>

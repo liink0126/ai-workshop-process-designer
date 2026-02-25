@@ -7,7 +7,7 @@ import { HistoryPage } from './components/QuizGenerator';
 import { AIDisclosureModal } from './components/AIDisclosureModal';
 import { useAuth } from './lib/auth';
 import { WorkshopData } from './types';
-import { getWorkshopById } from './lib/firebase';
+import { getWorkshopById, handleRedirectResult } from './lib/firebase';
 
 // 코드 스플리팅: 사용 빈도가 낮은 컴포넌트는 lazy loading
 const UserGuide = lazy(() => import('./components/UserGuide'));
@@ -23,6 +23,15 @@ const App: React.FC = () => {
   const [templateData, setTemplateData] = useState<WorkshopData | null>(null);
   const [sharedWorkshopId, setSharedWorkshopId] = useState<string | null>(null);
   const [showAIDisclosure, setShowAIDisclosure] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Firebase 리다이렉트 결과 처리
+  useEffect(() => {
+    handleRedirectResult().catch((error) => {
+      console.error("Firebase redirect error:", error);
+      setAuthError(error.message);
+    });
+  }, []);
 
   // URL 파라미터에서 워크숍 ID 읽기
   useEffect(() => {
@@ -66,12 +75,8 @@ const App: React.FC = () => {
     );
   }
 
-  if (!user) {
-    return <LoginPage />;
-  }
-
-  // AI 동의 모달 표시 여부 확인
-  if (!hasAcceptedAIDisclosure && !showAIDisclosure) {
+  // AI 동의 모달 표시 여부 확인 (로그인한 사용자만)
+  if (user && !hasAcceptedAIDisclosure && !showAIDisclosure) {
     setShowAIDisclosure(true);
   }
 
